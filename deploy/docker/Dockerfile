@@ -46,9 +46,9 @@ CMD ["uvicorn", "src.presentation.main:create_app", "--factory", "--host", "0.0.
 # Stage 3: Celery Worker
 FROM production AS worker
 
-CMD ["celery", "-A", "src.application.tasks.celery_app:celery", "worker", "--loglevel=info", "--concurrency=4"]
+CMD ["celery", "-A", "src.application.tasks.celery_app:app", "worker", "--loglevel=info", "--concurrency=4"]
 
 # Stage 4: Celery Beat
 FROM production AS beat
 
-CMD ["celery", "-A", "src.application.tasks.celery_app:celery", "beat", "--loglevel=info"]
+CMD ["celery", "-A", "src.application.tasks.celery_app:app", "beat", "--loglevel=info"]

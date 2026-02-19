@@ -8,19 +8,18 @@ services:
       target: production
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=platform
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_in_production}
-      - POSTGRES_DB=multitenant
-      - REDIS_URL=redis://redis:6379/0
-      - JWT_PRIVATE_KEY_PATH=/app/config/keys/private.pem
-      - JWT_PUBLIC_KEY_PATH=/app/config/keys/public.pem
-      - LOG_LEVEL=INFO
-      - ENVIRONMENT=development
-    volumes:
-      - ./keys:/app/config/keys:ro
+      - APP_POSTGRES_HOST=postgres
+      - APP_POSTGRES_PORT=5432
+      - APP_POSTGRES_USER=platform
+      - APP_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_in_production}
+      - APP_POSTGRES_DB=multitenant
+      - APP_REDIS_URL=redis://redis:6379/0
+      - APP_CELERY_BROKER_URL=redis://redis:6379/1
+      - APP_CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - APP_LOG_LEVEL=INFO
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,14 +40,18 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
       target: worker
+    env_file:
+      - .env
     environment:
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_USER=platform
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_in_production}
-      - POSTGRES_DB=multitenant
-      - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=INFO
+      - APP_POSTGRES_HOST=postgres
+      - APP_POSTGRES_PORT=5432
+      - APP_POSTGRES_USER=platform
+      - APP_POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_in_production}
+      - APP_POSTGRES_DB=multitenant
+      - APP_REDIS_URL=redis://redis:6379/0
+      - APP_CELERY_BROKER_URL=redis://redis:6379/1
+      - APP_CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - APP_LOG_LEVEL=INFO
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,9 +69,13 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
       target: beat
+    env_file:
+      - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
-      - LOG_LEVEL=INFO
+      - APP_REDIS_URL=redis://redis:6379/0
+      - APP_CELERY_BROKER_URL=redis://redis:6379/1
+      - APP_CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - APP_LOG_LEVEL=INFO
     depends_on:
       redis:
         condition: service_healthy
@@ -118,7 +125,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ../k8s/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-docker.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -138,7 +145,9 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
-      - ../k8s/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../k8s/grafana-dashboards/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ../k8s/grafana-dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ../k8s/grafana-dashboards:/etc/grafana/provisioning/dashboards/files:ro
     depends_on:
       - prometheus
     deploy:
@@ -153,6 +162,7 @@ services:
       - "3100:3100"
     volumes:
       - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
     deploy:
       resources:
         limits:
