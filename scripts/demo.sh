@@ -69,13 +69,42 @@ cd "$REPO_ROOT"
 python scripts/simulate_load.py --host "$API" --jobs 1000
 
 # ── Step 5: Show Prometheus Metrics ──────────────────────────────────────────
-banner "Step 5/5 — Check Drift & Alerts"
+banner "Step 5/6 — Check Drift & Alerts"
 echo "Giving Celery worker 30s to process drift checks..."
 sleep 30
 
 echo ""
 echo "── Prometheus Metrics ───────────────────────────────────"
 curl -s "$API/metrics" | grep -E "^(pipeline_silent|pipeline_latency|pipeline_alerts)" || true
+
+# ── Step 6: Generate & display weekly summary ────────────────────────────────
+banner "Step 6/6 — Weekly CTO Summary"
+
+# Extract first tenant ID from the API
+TENANT_ID=$(curl -s "$API/api/v1/tenants?page_size=1" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('items', [])
+if items:
+    print(items[0]['id'])
+" 2>/dev/null || true)
+
+if [ -n "$TENANT_ID" ]; then
+  echo "Generating summary for tenant: $TENANT_ID"
+  curl -s -X POST "$API/api/v1/tenants/$TENANT_ID/summary/generate" > /dev/null 2>&1 || true
+  sleep 2
+  SUMMARY=$(curl -s "$API/api/v1/tenants/$TENANT_ID/summary" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('plain_english_summary', 'Summary not yet available.'))
+" 2>/dev/null || true)
+  echo ""
+  echo "────────────────────────────────────────────────────────"
+  echo "$SUMMARY"
+  echo "────────────────────────────────────────────────────────"
+else
+  echo "No tenants found — skipping summary (run simulate_load.py first)."
+fi
 
 echo ""
 echo "── Open in browser ──────────────────────────────────────"

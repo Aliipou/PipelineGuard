@@ -17,6 +17,19 @@ PipelineGuard catches both automatically, in real time.
 
 ---
 
+## Why Existing Tools Don't Solve This
+
+| Tool | What it monitors | What it misses |
+|------|-----------------|----------------|
+| **Datadog / New Relic** | Infrastructure metrics (CPU, memory, error rates) | A job that runs, reports `200 OK`, and pulls 0 records — no error, no alert |
+| **Airflow / Prefect** | Task execution status (SUCCESS / FAILED) | `SUCCESS` with 0 records is not a failure to the scheduler — it's working as designed |
+| **Custom alerting on error rates** | HTTP 5xx, exception logs | Silent failures produce HTTP 201 and no exceptions — they're invisible to error-rate alerts |
+| **SLA monitors** | p99 latency at the API layer | Drift in *job execution duration* is not the same as API response time — it's inside the worker |
+
+**The core gap:** these tools watch infrastructure and explicit errors. They cannot distinguish between *a pipeline that succeeded* and *a pipeline that silently did nothing*. PipelineGuard hooks into the job execution layer and adds semantic checks that infrastructure monitoring cannot.
+
+---
+
 ## Quick Start (Docker — one command)
 
 ```bash

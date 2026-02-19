@@ -1,0 +1,50 @@
+{
+  "_comment": "Example: POST /api/v1/tenants/{id}/pipelines/{pid}/executions",
+  "_scenario": "Job reports SUCCEEDED but pulled 0 records — classic silent failure",
+
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/tenants/550e8400-e29b-41d4-a716-446655440000/pipelines/7a3f1c2d-b4e5-4f6a-8b9c-0d1e2f3a4b5c/executions",
+    "body": {
+      "status": "SUCCEEDED",
+      "started_at": "2026-02-19T03:00:00Z",
+      "finished_at": "2026-02-19T03:02:07Z",
+      "duration_seconds": 127.4,
+      "records_processed": 0,
+      "error_message": ""
+    }
+  },
+
+  "response": {
+    "status_code": 201,
+    "body": {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "pipeline_id": "7a3f1c2d-b4e5-4f6a-8b9c-0d1e2f3a4b5c",
+      "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "SILENT_FAILURE",
+      "started_at": "2026-02-19T03:00:00Z",
+      "finished_at": "2026-02-19T03:02:07Z",
+      "duration_seconds": 127.4,
+      "records_processed": 0,
+      "error_message": "",
+      "is_silent_failure": true,
+      "metadata": null
+    }
+  },
+
+  "alert_auto_created": {
+    "id": "f9e8d7c6-b5a4-3210-fedc-ba9876543210",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "pipeline_id": "7a3f1c2d-b4e5-4f6a-8b9c-0d1e2f3a4b5c",
+    "severity": "CRITICAL",
+    "alert_type": "SILENT_FAILURE",
+    "title": "Silent failure detected: Facebook Ads -> BigQuery",
+    "description": "Job completed with status SUCCEEDED but processed 0 records at 2026-02-19T03:02:07Z. Data may not have been ingested.",
+    "acknowledged": false,
+    "acknowledged_by": null,
+    "acknowledged_at": null,
+    "created_at": "2026-02-19T03:02:07Z"
+  },
+
+  "prometheus_metric_incremented": "pipeline_silent_failures_total{tenant_id=\"550e8400\", pipeline_id=\"7a3f1c2d\"} += 1"
+}

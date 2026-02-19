@@ -1,0 +1,12 @@
+Weekly Pipeline Health Report (Feb 10 - Feb 17, 2026)
+
+RELIABILITY: 94.2% success rate (847 jobs, 49 failures)
+SILENT FAILURES: 3 job(s) failed without alerting anyone. This is your highest risk.
+LATENCY DRIFT: 2 pipeline(s) are trending slower (avg +34.7% vs baseline).
+
+TOP RISKS:
+  1. 'Facebook Ads -> BigQuery' silent failure Feb 14 03:15 UTC — 0 records processed
+  2. 'TikTok Ads -> BigQuery' is +41.2% slower than p50 baseline (z-score: 3.8σ)
+  3. 'LinkedIn Ads -> Redshift' is +28.3% slower than p50 baseline (z-score: 3.1σ)
+
+RECOMMENDATION: Investigate flagged pipelines before they impact downstream analytics.

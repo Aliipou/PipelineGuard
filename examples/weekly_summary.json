@@ -1,0 +1,37 @@
+{
+  "_comment": "Example: GET /api/v1/tenants/{id}/summary",
+  "_scenario": "Week with 3 silent failures and 2 pipelines showing latency drift",
+
+  "request": {
+    "method": "GET",
+    "path": "/api/v1/tenants/550e8400-e29b-41d4-a716-446655440000/summary"
+  },
+
+  "response": {
+    "status_code": 200,
+    "body": {
+      "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+      "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+      "week_start": "2026-02-10",
+      "week_end": "2026-02-17",
+      "total_jobs": 847,
+      "failed_jobs": 49,
+      "silent_failures": 3,
+      "pipelines_with_drift": 2,
+      "avg_drift_percentage": 34.7,
+      "top_risks": [
+        {
+          "description": "'Facebook Ads -> BigQuery' silent failure Feb 14 03:15 UTC — 0 records processed"
+        },
+        {
+          "description": "'TikTok Ads -> BigQuery' is +41.2% slower than p50 baseline (z-score: 3.8σ)"
+        },
+        {
+          "description": "'LinkedIn Ads -> Redshift' is +28.3% slower than p50 baseline (z-score: 3.1σ)"
+        }
+      ],
+      "plain_english_summary": "Weekly Pipeline Health Report (Feb 10 - Feb 17, 2026)\n\nRELIABILITY: 94.2% success rate (847 jobs, 49 failures)\nSILENT FAILURES: 3 job(s) failed without alerting anyone. This is your highest risk.\nLATENCY DRIFT: 2 pipeline(s) are trending slower (avg +34.7% vs baseline).\n\nTOP RISKS:\n  1. 'Facebook Ads -> BigQuery' silent failure Feb 14 03:15 UTC — 0 records processed\n  2. 'TikTok Ads -> BigQuery' is +41.2% slower than p50 baseline (z-score: 3.8σ)\n  3. 'LinkedIn Ads -> Redshift' is +28.3% slower than p50 baseline (z-score: 3.1σ)\n\nRECOMMENDATION: Investigate flagged pipelines before they impact downstream analytics.",
+      "generated_at": "2026-02-17T08:00:01Z"
+    }
+  }
+}

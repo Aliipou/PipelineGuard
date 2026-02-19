@@ -1,0 +1,86 @@
+{
+  "_comment": "Example: POST /api/v1/tenants/{id}/pipelines/{pid}/executions",
+  "_scenario": "Job runs 34% slower than p50 baseline — drift + z-score anomaly both triggered",
+
+  "request": {
+    "method": "POST",
+    "path": "/api/v1/tenants/550e8400-e29b-41d4-a716-446655440000/pipelines/9c8b7a6f-d5e4-4f3a-9b0c-1d2e3f4a5b6c/executions",
+    "body": {
+      "status": "SUCCEEDED",
+      "started_at": "2026-02-19T04:00:00Z",
+      "finished_at": "2026-02-19T04:02:14Z",
+      "duration_seconds": 134.1,
+      "records_processed": 48210,
+      "error_message": ""
+    }
+  },
+
+  "response": {
+    "status_code": 201,
+    "body": {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "pipeline_id": "9c8b7a6f-d5e4-4f3a-9b0c-1d2e3f4a5b6c",
+      "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+      "status": "SUCCEEDED",
+      "started_at": "2026-02-19T04:00:00Z",
+      "finished_at": "2026-02-19T04:02:14Z",
+      "duration_seconds": 134.1,
+      "records_processed": 48210,
+      "error_message": "",
+      "is_silent_failure": false,
+      "metadata": null
+    }
+  },
+
+  "drift_analysis": {
+    "p50_baseline_seconds": 100.0,
+    "p95_baseline_seconds": 118.3,
+    "current_duration_seconds": 134.1,
+    "drift_percentage": 34.1,
+    "is_drifting": true,
+    "z_score": 3.2,
+    "is_anomaly": true,
+    "_note": "Threshold: drift_percentage > 25% AND |z_score| > 2.5σ → both triggered"
+  },
+
+  "latency_record_created": {
+    "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+    "pipeline_id": "9c8b7a6f-d5e4-4f3a-9b0c-1d2e3f4a5b6c",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "measured_at": "2026-02-19T04:02:14Z",
+    "duration_seconds": 134.1,
+    "p50_baseline_seconds": 100.0,
+    "p95_baseline_seconds": 118.3,
+    "drift_percentage": 34.1
+  },
+
+  "alert_auto_created": {
+    "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "pipeline_id": "9c8b7a6f-d5e4-4f3a-9b0c-1d2e3f4a5b6c",
+    "severity": "WARNING",
+    "alert_type": "LATENCY_DRIFT",
+    "title": "Latency drift detected: TikTok Ads -> BigQuery",
+    "description": "Pipeline is running 34.1% above p50 baseline (100.0s). Current: 134.1s. Z-score: 3.2σ (anomaly). Rolling window: 100 samples.",
+    "acknowledged": false,
+    "acknowledged_by": null,
+    "acknowledged_at": null,
+    "created_at": "2026-02-19T04:02:14Z"
+  },
+
+  "structured_log_emitted": {
+    "event": "latency_drift_detected",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "pipeline_id": "9c8b7a6f-d5e4-4f3a-9b0c-1d2e3f4a5b6c",
+    "pipeline_name": "TikTok Ads -> BigQuery",
+    "duration_seconds": 134.1,
+    "p50_baseline": 100.0,
+    "drift_percentage": 34.1,
+    "z_score": 3.2,
+    "is_anomaly": true,
+    "timestamp": "2026-02-19T04:02:14Z",
+    "level": "warning"
+  },
+
+  "prometheus_metric_incremented": "pipeline_latency_drift_detected{tenant_id=\"550e8400\", pipeline_id=\"9c8b7a6f\"} += 1"
+}
