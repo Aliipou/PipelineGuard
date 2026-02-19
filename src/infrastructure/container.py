@@ -11,8 +11,11 @@ import logging
 from application.services.auth_service import AuthService
 from application.services.billing_service import BillingService
 from application.services.gdpr_service import GDPRService
+from application.services.pipeline_service import PipelineService
 from application.services.tenant_service import TenantService
 from domain.services.cost_calculator import CostCalculator
+from domain.services.drift_analyzer import DriftAnalyzer
+from domain.services.summary_generator import SummaryGenerator
 from domain.services.tenant_lifecycle import TenantLifecycleService
 from infrastructure.adapters import (
     InMemoryAnomalyRepository,
@@ -21,12 +24,17 @@ from infrastructure.adapters import (
     InMemoryCostRepository,
     InMemoryExportJobRepository,
     InMemoryInvoiceRepository,
+    InMemoryJobExecutionRepository,
+    InMemoryLatencyRecordRepository,
+    InMemoryPipelineAlertRepository,
+    InMemoryPipelineRepository,
     InMemoryRefreshTokenStore,
     InMemoryRetentionRepository,
     InMemoryTenantDataRepository,
     InMemoryTenantRepository,
     InMemoryUsageRepository,
     InMemoryUserRepository,
+    InMemoryWeeklySummaryRepository,
     LoggingEventPublisher,
     NoOpSchemaManager,
 )
@@ -57,9 +65,18 @@ class ServiceContainer:
         self.schema_manager = NoOpSchemaManager()
         self.event_publisher = LoggingEventPublisher()
 
+        # PipelineGuard adapters
+        self.pipeline_repo = InMemoryPipelineRepository()
+        self.execution_repo = InMemoryJobExecutionRepository()
+        self.latency_repo = InMemoryLatencyRecordRepository()
+        self.alert_repo = InMemoryPipelineAlertRepository()
+        self.summary_repo = InMemoryWeeklySummaryRepository()
+
         # Domain services
         self.lifecycle_service = TenantLifecycleService()
         self.cost_calculator = CostCalculator()
+        self.drift_analyzer = DriftAnalyzer()
+        self.summary_generator = SummaryGenerator()
 
         # Application services
         self.tenant_service = TenantService(
@@ -98,6 +115,16 @@ class ServiceContainer:
             data_repo=self.data_repo,
             audit_repo=self.audit_repo,
             lifecycle_service=self.lifecycle_service,
+        )
+
+        self.pipeline_service = PipelineService(
+            pipeline_repo=self.pipeline_repo,
+            execution_repo=self.execution_repo,
+            latency_repo=self.latency_repo,
+            alert_repo=self.alert_repo,
+            summary_repo=self.summary_repo,
+            drift_analyzer=self.drift_analyzer,
+            summary_generator=self.summary_generator,
         )
 
         logger.info("ServiceContainer initialized")
@@ -140,3 +167,7 @@ def get_billing_service() -> BillingService:
 
 def get_gdpr_service() -> GDPRService:
     return get_container().gdpr_service
+
+
+def get_pipeline_service() -> PipelineService:
+    return get_container().pipeline_service

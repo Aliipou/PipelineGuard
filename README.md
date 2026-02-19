@@ -1,6 +1,8 @@
-# EU Multi-Tenant Cloud Platform
+# EU Multi-Tenant Cloud Platform — PipelineGuard
 
-EU-Grade Multi-Tenant Cloud Platform with cost-aware billing, GDPR-native compliance, and production-grade SaaS architecture.
+EU-Grade Multi-Tenant Cloud Platform with cost-aware billing, GDPR-native compliance, pipeline monitoring, and production-grade SaaS architecture.
+
+**PipelineGuard** extends the platform with API-first monitoring for async data pipelines: silent failure detection, latency drift tracking, and weekly plain-English CTO summaries.
 
 ## Architecture
 
@@ -22,6 +24,7 @@ src/
 - **RFC 9457 Problem Details** for all error responses
 - **Tamper-evident audit log** with SHA-256 hash chain
 - **Cost anomaly detection** via z-score analysis (2.5 sigma threshold, 7-day rolling window)
+- **PipelineGuard** — silent failure detection, latency drift analysis (p50 percentile baseline), weekly CTO summaries
 
 ## Tech Stack
 
@@ -124,6 +127,20 @@ Services: API (:8000), PostgreSQL (:5432), Redis (:6379), Prometheus (:9090), Gr
 | `PUT`  | `/api/v1/tenants/{id}/gdpr/retention`         | Update retention     |
 | `GET`  | `/api/v1/tenants/{id}/audit-log`              | Audit trail          |
 
+### PipelineGuard
+| Method | Path                                                            | Description             |
+|--------|-----------------------------------------------------------------|-------------------------|
+| `POST` | `/api/v1/tenants/{id}/pipelines`                                | Register pipeline       |
+| `GET`  | `/api/v1/tenants/{id}/pipelines`                                | List pipelines          |
+| `GET`  | `/api/v1/tenants/{id}/pipelines/{pid}`                          | Get pipeline detail     |
+| `POST` | `/api/v1/tenants/{id}/pipelines/{pid}/executions`               | Report job execution    |
+| `GET`  | `/api/v1/tenants/{id}/pipelines/{pid}/executions`               | List executions         |
+| `GET`  | `/api/v1/tenants/{id}/pipelines/{pid}/latency`                  | Latency history         |
+| `GET`  | `/api/v1/tenants/{id}/alerts`                                   | List alerts             |
+| `POST` | `/api/v1/tenants/{id}/alerts/{aid}/acknowledge`                 | Acknowledge alert       |
+| `GET`  | `/api/v1/tenants/{id}/summary`                                  | Latest weekly summary   |
+| `POST` | `/api/v1/tenants/{id}/summary/generate`                         | Generate summary now    |
+
 ### Operations
 | Method | Path       | Description  |
 |--------|------------|--------------|
@@ -146,6 +163,66 @@ Each transition is validated by the domain `TenantLifecycleService` and recorded
 - **Article 20 (Data Portability)**: Export all tenant data as JSON/CSV/XML archive with manifest
 - **Retention Policies**: Configurable per-tenant with soft-delete grace periods and hard-delete enforcement
 
+## PipelineGuard
+
+PipelineGuard monitors async data pipelines (e.g., Google Ads -> BigQuery) for three failure modes:
+
+### Silent Failure Detection
+
+A job is flagged as a **silent failure** when:
+- Status reported as `SUCCEEDED` but `records_processed == 0`
+- Status reported as `SUCCEEDED` but `error_message` is non-empty
+
+Silent failures generate a `CRITICAL` alert immediately. This catches the most dangerous pipeline failure mode: jobs that report success but deliver no data.
+
+### Latency Drift Detection
+
+- Compares current job duration against **p50 baseline** from recent history
+- Drift threshold: **25%** above p50 (configurable)
+- Generates `WARNING` alert when drift is detected
+- Celery task runs hourly to scan all pipelines
+
+### Consecutive Failure Alerting
+
+- Tracks the last N executions per pipeline
+- If consecutive failures >= `failure_threshold` (default: 3) -> `CRITICAL` alert
+
+### Weekly CTO Summary
+
+Generated every Monday at 08:00 UTC (or on-demand via API), producing a plain-English report:
+
+```
+Weekly Pipeline Health Report (Feb 10 - Feb 17, 2026)
+
+RELIABILITY: 94.2% success rate (847 jobs, 49 failures)
+SILENT FAILURES: 3 job(s) failed without alerting anyone. This is your highest risk.
+LATENCY DRIFT: 2 pipeline(s) are trending slower (avg +34.7% vs baseline).
+
+TOP RISKS:
+  1. 'Facebook Ads -> BigQuery' silent failure on Feb 14 at 03:15 UTC — 0 records.
+  2. 'TikTok Ads -> BigQuery' is +41.2% slower than baseline.
+
+RECOMMENDATION: Investigate flagged pipelines before they impact downstream analytics.
+```
+
+### Background Tasks
+
+| Task                       | Schedule        | Purpose                                    |
+|----------------------------|-----------------|--------------------------------------------|
+| `scan_silent_failures`     | Every 15 min    | Scan recent jobs for silent failure patterns |
+| `check_latency_drift`     | Hourly          | Check all pipelines for drift vs baseline  |
+| `generate_weekly_summaries`| Monday 08:00 UTC| Generate CTO summary for all tenants       |
+
+### Database Tables (public schema)
+
+| Table               | Purpose                                |
+|---------------------|----------------------------------------|
+| `pipelines`         | Registered async data pipelines        |
+| `job_executions`    | Individual job runs with failure flags  |
+| `latency_records`   | Latency measurements for drift tracking|
+| `pipeline_alerts`   | Generated alerts (silent, drift, consecutive)|
+| `weekly_summaries`  | CTO reports stored for history         |
+
 ## Testing
 
 ```bash
@@ -167,12 +244,12 @@ pytest tests/unit/ -v --cov=src --cov-report=term-missing
 
 ### Test Categories
 
-| Category    | Count | Focus                                    |
-|-------------|-------|------------------------------------------|
-| Unit        | 215   | Domain models, services, infrastructure  |
-| Integration | 21    | Database, schema manager, lifecycle      |
-| Contract    | 14    | OpenAPI schema, RFC 9457 validation      |
-| Load        | -     | 100 concurrent users, p95 < 200ms       |
+| Category    | Count | Focus                                             |
+|-------------|-------|---------------------------------------------------|
+| Unit        | 281   | Domain models, services, infrastructure, pipelines |
+| Integration | 37    | Database, schema manager, lifecycle, repositories  |
+| Contract    | 29    | OpenAPI schema, RFC 9457 validation, PipelineGuard |
+| Load        | -     | 100 concurrent users, p95 < 200ms                 |
 
 ## Code Quality
 

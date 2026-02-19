@@ -15,6 +15,13 @@ if TYPE_CHECKING:
 
     from domain.models.audit import AuditEntry
     from domain.models.billing import CostAnomaly, CostRecord, Invoice, UsageRecord
+    from domain.models.pipeline import (
+        JobExecution,
+        LatencyRecord,
+        Pipeline,
+        PipelineAlert,
+        WeeklySummary,
+    )
     from domain.models.tenant import Tenant, TenantStatus
     from domain.models.user import User
 
@@ -330,6 +337,156 @@ class InMemoryTenantDataRepository:
     def cascade_delete_all(self, tenant_id: UUID) -> int:
         logger.info("Cascade delete all data for tenant %s", tenant_id)
         return 0
+
+
+# ---------------------------------------------------------------------------
+# PipelineGuard in-memory repositories
+# ---------------------------------------------------------------------------
+
+
+class InMemoryPipelineRepository:
+    """In-memory pipeline store."""
+
+    def __init__(self) -> None:
+        self._store: dict[UUID, Pipeline] = {}
+
+    def get_by_id(self, pipeline_id: UUID) -> Pipeline | None:
+        return self._store.get(pipeline_id)
+
+    def list_by_tenant(
+        self,
+        tenant_id: UUID,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[Pipeline], int]:
+        items = [p for p in self._store.values() if p.tenant_id == tenant_id]
+        total = len(items)
+        return items[offset : offset + limit], total
+
+    def save(self, pipeline: Pipeline) -> Pipeline:
+        self._store[pipeline.id] = pipeline
+        return pipeline
+
+    def update(self, pipeline: Pipeline) -> Pipeline:
+        self._store[pipeline.id] = pipeline
+        return pipeline
+
+
+class InMemoryJobExecutionRepository:
+    """In-memory job execution store."""
+
+    def __init__(self) -> None:
+        self._store: list[JobExecution] = []
+
+    def get_by_id(self, execution_id: UUID) -> JobExecution | None:
+        for ex in self._store:
+            if ex.id == execution_id:
+                return ex
+        return None
+
+    def list_by_pipeline(
+        self,
+        pipeline_id: UUID,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[JobExecution], int]:
+        items = [ex for ex in self._store if ex.pipeline_id == pipeline_id]
+        total = len(items)
+        return items[offset : offset + limit], total
+
+    def list_recent_by_pipeline(
+        self,
+        pipeline_id: UUID,
+        limit: int = 10,
+    ) -> list[JobExecution]:
+        items = [ex for ex in self._store if ex.pipeline_id == pipeline_id]
+        return items[-limit:]
+
+    def list_recent_by_tenant(
+        self,
+        tenant_id: UUID,
+        limit: int = 100,
+    ) -> list[JobExecution]:
+        items = [ex for ex in self._store if ex.tenant_id == tenant_id]
+        return items[-limit:]
+
+    def save(self, execution: JobExecution) -> JobExecution:
+        self._store.append(execution)
+        return execution
+
+
+class InMemoryLatencyRecordRepository:
+    """In-memory latency record store."""
+
+    def __init__(self) -> None:
+        self._store: list[LatencyRecord] = []
+
+    def list_by_pipeline(
+        self,
+        pipeline_id: UUID,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[LatencyRecord], int]:
+        items = [r for r in self._store if r.pipeline_id == pipeline_id]
+        total = len(items)
+        return items[offset : offset + limit], total
+
+    def get_recent_durations(
+        self,
+        pipeline_id: UUID,
+        limit: int = 100,
+    ) -> list[float]:
+        items = [r for r in self._store if r.pipeline_id == pipeline_id]
+        return [r.duration_seconds for r in items[-limit:]]
+
+    def save(self, record: LatencyRecord) -> LatencyRecord:
+        self._store.append(record)
+        return record
+
+
+class InMemoryPipelineAlertRepository:
+    """In-memory pipeline alert store."""
+
+    def __init__(self) -> None:
+        self._store: dict[UUID, PipelineAlert] = {}
+
+    def get_by_id(self, alert_id: UUID) -> PipelineAlert | None:
+        return self._store.get(alert_id)
+
+    def list_by_tenant(
+        self,
+        tenant_id: UUID,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> tuple[list[PipelineAlert], int]:
+        items = [a for a in self._store.values() if a.tenant_id == tenant_id]
+        total = len(items)
+        return items[offset : offset + limit], total
+
+    def save(self, alert: PipelineAlert) -> PipelineAlert:
+        self._store[alert.id] = alert
+        return alert
+
+    def update(self, alert: PipelineAlert) -> PipelineAlert:
+        self._store[alert.id] = alert
+        return alert
+
+
+class InMemoryWeeklySummaryRepository:
+    """In-memory weekly summary store."""
+
+    def __init__(self) -> None:
+        self._store: list[WeeklySummary] = []
+
+    def get_latest_by_tenant(self, tenant_id: UUID) -> WeeklySummary | None:
+        for summary in reversed(self._store):
+            if summary.tenant_id == tenant_id:
+                return summary
+        return None
+
+    def save(self, summary: WeeklySummary) -> WeeklySummary:
+        self._store.append(summary)
+        return summary
 
 
 # ---------------------------------------------------------------------------

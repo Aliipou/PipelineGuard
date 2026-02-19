@@ -7,6 +7,7 @@ and retry policies.
 from __future__ import annotations
 
 from celery import Celery
+from celery.schedules import crontab
 
 app = Celery("eu_multitenant")
 
@@ -33,6 +34,7 @@ app.conf.task_routes = {
     "application.tasks.tenant_tasks.*": {"queue": "tenants"},
     "application.tasks.billing_tasks.*": {"queue": "billing"},
     "application.tasks.gdpr_tasks.*": {"queue": "gdpr"},
+    "application.tasks.pipeline_tasks.*": {"queue": "pipelines"},
 }
 
 # ---------------------------------------------------------------------------
@@ -69,5 +71,25 @@ app.autodiscover_tasks(
         "application.tasks.tenant_tasks",
         "application.tasks.billing_tasks",
         "application.tasks.gdpr_tasks",
+        "application.tasks.pipeline_tasks",
     ]
 )
+
+# ---------------------------------------------------------------------------
+# Beat schedule (periodic tasks)
+# ---------------------------------------------------------------------------
+
+app.conf.beat_schedule = {
+    "scan-silent-failures-every-15-min": {
+        "task": "application.tasks.pipeline_tasks.scan_silent_failures",
+        "schedule": 900.0,  # 15 minutes
+    },
+    "check-latency-drift-hourly": {
+        "task": "application.tasks.pipeline_tasks.check_latency_drift",
+        "schedule": 3600.0,  # 1 hour
+    },
+    "generate-weekly-summaries-monday": {
+        "task": "application.tasks.pipeline_tasks.generate_weekly_summaries",
+        "schedule": crontab(hour=8, minute=0, day_of_week=1),  # Monday 08:00 UTC
+    },
+}

@@ -1,0 +1,154 @@
+OLD STANDARD — Backend Engineering (2025)
+۱) API Design
+
+REST اصولی + نسخه‌گذاری درست (/v1/...)
+
+OpenAPI/Swagger مستندات رسمی
+
+استفاده از HTTP status code دقیق
+
+Idempotency برای requestهای حساس
+
+Error format استاندارد (Problem Details RFC 9457)
+
+اگر API داری بدون اینا، تیم‌های قوی جدي نمی‌گیرنش.
+
+۲) Backend Frameworks
+
+FastAPI برای Python → سریع، استاندارد، تایپ‌محور، بهترین انتخاب 2025
+
+Django REST + DRF → وقتی سیستم خیلی بزرگ و سازمانی باشه
+
+در دنیا الان FastAPI = golden standard برای سرویس‌های مدرن
+
+۳) Code Quality
+
+Type annotations کامل (Python typing)
+
+Black + Ruff برای formatting و linting
+
+100% independent modules
+
+Zero business logic inside views → همه چیز در service layer
+
+اگر بیزنس‌لاجیک داخل view هست، همون‌جا معلومه تیم ضعیفه.
+
+۴) Testing
+
+pytest → استاندارد طلایی
+
+تست‌ها باید:
+
+سریع
+
+قابل تکرار
+
+مستقل
+
+meaningful
+
+Integration tests + unit tests + contract tests
+
+حداقل سطح قابل قبول شرکت‌های جدی:
+۶۰٪ Unit coverage + ۸۰٪ integration relevance
+
+۵) Version Control
+
+Commit message استاندارد Conventional Commits
+
+Branch strategy:
+
+main
+
+dev
+
+feature branches
+
+Pull Request + Code Review با چک‌لیست
+
+۶) Security
+
+OWASP Top 10
+
+Secretها در:
+
+Vault
+
+AWS Secret Manager
+
+no .env inside repo
+
+JWT rotation
+
+token برای ۱۵–۳۰ دقیقه
+
+password hashing: Argon2
+
+۷) Databases
+
+Migration pipeline:
+
+Alembic (SQLAlchemy) برای FastAPI
+
+Django ORM migrations
+
+SQL queries:
+
+فقط service layer
+
+هر query log می‌شود
+
+indexها مستندند
+
+۸) DevOps / CI-CD
+
+CI/CD:
+
+GitHub Actions → golden standard
+
+Test + lint + security scan → قبل از merge
+
+Dockerfile:
+
+slim
+
+multi-stage build
+
+Logging:
+
+structured JSON logs
+
+OpenTelemetry → استاندارد طلایی مانیتورینگ 2025
+
+۹) Architecture
+
+Clean/Hexagonal Architecture → استاندارد
+
+Separation:
+
+domain
+
+application
+
+infrastructure
+
+presentation
+
+No business logic in:
+
+controllers
+
+routers
+
+database models
+
+معماری تمیز = زبان مشترک تمام تیم‌های قوی
+
+۱۰) Cloud Deployment
+
+Kubernetes برای سرویس‌های بزرگ
+
+کوچک‌تر؟ → AWS ECS یا Lambda
+
+Logging + metrics + tracing:
+OpenTelemetry + Prometheus + Grafana

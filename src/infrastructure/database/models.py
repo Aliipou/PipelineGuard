@@ -453,3 +453,288 @@ class AuditLogModel(Base):
         return (
             f"<AuditLog(id={self.id!r}, action={self.action!r}, " f"tenant_id={self.tenant_id!r})>"
         )
+
+
+# ---------------------------------------------------------------------------
+# PipelineGuard Enumerations
+# ---------------------------------------------------------------------------
+
+
+class PipelineStatusDB(str, enum.Enum):
+    ACTIVE = "active"
+    PAUSED = "paused"
+    DISABLED = "disabled"
+
+
+class JobStatusDB(str, enum.Enum):
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+    SILENT_FAILURE = "silent_failure"
+
+
+class AlertSeverityDB(str, enum.Enum):
+    WARNING = "warning"
+    CRITICAL = "critical"
+
+
+class AlertTypeDB(str, enum.Enum):
+    SILENT_FAILURE = "silent_failure"
+    LATENCY_DRIFT = "latency_drift"
+    CONSECUTIVE_FAILURES = "consecutive_failures"
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SCHEMA -- PipelineModel
+# ---------------------------------------------------------------------------
+
+
+class PipelineModel(Base):
+    """Registered async data pipeline for monitoring."""
+
+    __tablename__ = "pipelines"
+    __table_args__ = (
+        Index("ix_pipelines_tenant_id", "tenant_id"),
+        Index("ix_pipelines_status", "status"),
+        {"schema": "public"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("public.tenants.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    source: Mapped[str] = mapped_column(String(255), nullable=False)
+    destination: Mapped[str] = mapped_column(String(255), nullable=False)
+    schedule_cron: Mapped[str] = mapped_column(String(100), nullable=False, default="")
+    status: Mapped[PipelineStatusDB] = mapped_column(
+        Enum(PipelineStatusDB, name="pipeline_status", schema="public"),
+        nullable=False,
+        default=PipelineStatusDB.ACTIVE,
+    )
+    expected_duration_seconds: Mapped[float] = mapped_column(
+        Numeric(12, 2), nullable=False, default=0.0
+    )
+    timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=3600)
+    failure_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+    job_executions: Mapped[list[JobExecutionModel]] = relationship(
+        back_populates="pipeline", lazy="selectin"
+    )
+    latency_records: Mapped[list[LatencyRecordModel]] = relationship(
+        back_populates="pipeline", lazy="selectin"
+    )
+    alerts: Mapped[list[PipelineAlertModel]] = relationship(
+        back_populates="pipeline", lazy="selectin"
+    )
+
+    def __repr__(self) -> str:
+        return f"<Pipeline(id={self.id!r}, name={self.name!r}, status={self.status!r})>"
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SCHEMA -- JobExecutionModel
+# ---------------------------------------------------------------------------
+
+
+class JobExecutionModel(Base):
+    """Individual job run with silent failure detection."""
+
+    __tablename__ = "job_executions"
+    __table_args__ = (
+        Index("ix_job_executions_pipeline_id", "pipeline_id"),
+        Index("ix_job_executions_tenant_id", "tenant_id"),
+        Index("ix_job_executions_status", "status"),
+        Index("ix_job_executions_started_at", "started_at"),
+        {"schema": "public"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("public.pipelines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    status: Mapped[JobStatusDB] = mapped_column(
+        Enum(JobStatusDB, name="job_status", schema="public"),
+        nullable=False,
+        default=JobStatusDB.RUNNING,
+    )
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_seconds: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0.0)
+    records_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    is_silent_failure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    pipeline: Mapped[PipelineModel] = relationship(back_populates="job_executions")
+
+    def __repr__(self) -> str:
+        return f"<JobExecution(id={self.id!r}, status={self.status!r})>"
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SCHEMA -- LatencyRecordModel
+# ---------------------------------------------------------------------------
+
+
+class LatencyRecordModel(Base):
+    """Latency measurement for drift tracking."""
+
+    __tablename__ = "latency_records"
+    __table_args__ = (
+        Index("ix_latency_records_pipeline_id", "pipeline_id"),
+        Index("ix_latency_records_tenant_id", "tenant_id"),
+        Index("ix_latency_records_measured_at", "measured_at"),
+        {"schema": "public"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("public.pipelines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    measured_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    duration_seconds: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0.0)
+    p50_baseline_seconds: Mapped[float] = mapped_column(
+        Numeric(12, 2), nullable=False, default=0.0
+    )
+    p95_baseline_seconds: Mapped[float] = mapped_column(
+        Numeric(12, 2), nullable=False, default=0.0
+    )
+    drift_percentage: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0.0)
+
+    pipeline: Mapped[PipelineModel] = relationship(back_populates="latency_records")
+
+    def __repr__(self) -> str:
+        return (
+            f"<LatencyRecord(id={self.id!r}, duration={self.duration_seconds!r}, "
+            f"drift={self.drift_percentage!r}%)>"
+        )
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SCHEMA -- PipelineAlertModel
+# ---------------------------------------------------------------------------
+
+
+class PipelineAlertModel(Base):
+    """Generated alert for pipeline issues."""
+
+    __tablename__ = "pipeline_alerts"
+    __table_args__ = (
+        Index("ix_pipeline_alerts_tenant_id", "tenant_id"),
+        Index("ix_pipeline_alerts_pipeline_id", "pipeline_id"),
+        Index("ix_pipeline_alerts_severity", "severity"),
+        Index("ix_pipeline_alerts_created_at", "created_at"),
+        {"schema": "public"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    pipeline_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("public.pipelines.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    severity: Mapped[AlertSeverityDB] = mapped_column(
+        Enum(AlertSeverityDB, name="alert_severity", schema="public"),
+        nullable=False,
+    )
+    alert_type: Mapped[AlertTypeDB] = mapped_column(
+        Enum(AlertTypeDB, name="alert_type", schema="public"),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), nullable=True
+    )
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    pipeline: Mapped[PipelineModel] = relationship(back_populates="alerts")
+
+    def __repr__(self) -> str:
+        return (
+            f"<PipelineAlert(id={self.id!r}, type={self.alert_type!r}, "
+            f"severity={self.severity!r})>"
+        )
+
+
+# ---------------------------------------------------------------------------
+# PUBLIC SCHEMA -- WeeklySummaryModel
+# ---------------------------------------------------------------------------
+
+
+class WeeklySummaryModel(Base):
+    """Weekly CTO report stored for history."""
+
+    __tablename__ = "weekly_summaries"
+    __table_args__ = (
+        Index("ix_weekly_summaries_tenant_id", "tenant_id"),
+        Index("ix_weekly_summaries_week_start", "week_start"),
+        {"schema": "public"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+        server_default=text("gen_random_uuid()"),
+    )
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    week_start: Mapped[date] = mapped_column(nullable=False)
+    week_end: Mapped[date] = mapped_column(nullable=False)
+    total_jobs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    failed_jobs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    silent_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    pipelines_with_drift: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    avg_drift_percentage: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0.0)
+    top_risks: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    plain_english_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    generated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )

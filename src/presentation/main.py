@@ -15,7 +15,7 @@ from domain.exceptions.tenant_exceptions import DomainError
 from infrastructure.container import get_container
 from infrastructure.observability.logging_config import setup_logging
 
-from .api.v1 import auth, billing, gdpr, tenants
+from .api.v1 import auth, billing, gdpr, pipelines, tenants
 from .middleware.request_logging import RequestLoggingMiddleware
 from .middleware.tenant_context import TenantContextMiddleware
 
@@ -148,6 +148,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix=API_V1_PREFIX)
     app.include_router(billing.router, prefix=API_V1_PREFIX)
     app.include_router(gdpr.router, prefix=API_V1_PREFIX)
+    app.include_router(pipelines.router, prefix=API_V1_PREFIX)
 
     # -- Exception handlers
     app.add_exception_handler(DomainError, _domain_exception_handler)

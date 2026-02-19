@@ -31,13 +31,18 @@ Each tenant receives a dedicated PostgreSQL schema (`tenant_{slug}`), providing:
 - **GDPR-compliant erasure** via `DROP SCHEMA ... CASCADE`
 - **Per-tenant resource accounting** for billing
 
-Shared data (tenant registry, audit log) lives in the `public` schema.
+Shared data (tenant registry, audit log, pipeline monitoring) lives in the `public` schema.
 
 ```
 PostgreSQL
 ├── public
 │   ├── tenants          (tenant registry)
-│   └── audit_log        (hash-chained audit trail)
+│   ├── audit_log        (hash-chained audit trail)
+│   ├── pipelines        (PipelineGuard: registered pipelines)
+│   ├── job_executions   (PipelineGuard: job runs + silent failure flags)
+│   ├── latency_records  (PipelineGuard: latency measurements)
+│   ├── pipeline_alerts  (PipelineGuard: generated alerts)
+│   └── weekly_summaries (PipelineGuard: CTO reports)
 ├── tenant_acme_gmbh
 │   ├── users
 │   ├── usage_records
@@ -133,6 +138,60 @@ Custom Prometheus metrics:
 - `tenant_count` (by status)
 - `tenant_resource_usage` (by tenant and resource type)
 - `cost_anomalies_total` (by tenant and resource type)
+- `pipeline_silent_failures_total` (by tenant and pipeline)
+- `pipeline_latency_drift_detected` (by tenant and pipeline)
+- `pipeline_alerts_active` (by tenant and severity)
+
+## PipelineGuard Architecture
+
+PipelineGuard is a vertical slice that monitors async data pipelines for silent failures and latency drift.
+
+### Data Flow
+
+```
+External Pipeline
+  │
+  │  POST /api/v1/tenants/{id}/pipelines/{pid}/executions
+  │  (webhook on each job completion)
+  ▼
+PipelineService.record_execution()
+  │
+  ├── Silent Failure Detection
+  │     status=SUCCEEDED + records_processed=0 → SILENT_FAILURE
+  │     → Creates CRITICAL alert
+  │
+  ├── Consecutive Failure Check
+  │     last N failures >= threshold → CRITICAL alert
+  │
+  └── Latency Tracking
+        DriftAnalyzer.analyze(current, historical)
+        → Records LatencyRecord with p50/p95 baselines
+```
+
+### Drift Detection Algorithm
+
+```
+historical_durations = last 100 measurements (14-day window)
+p50 = median(historical_durations)
+threshold = p50 * 1.25  (25% above baseline)
+
+if current_duration > threshold:
+    alert(WARNING, "latency drift detected")
+```
+
+### Background Task Schedule
+
+```
+Every 15 min:  scan_silent_failures   → re-scan recent SUCCEEDED jobs
+Every hour:    check_latency_drift    → compare all pipelines against baselines
+Monday 08:00:  generate_weekly_summaries → plain-English CTO report per tenant
+```
+
+### Prometheus Metrics
+
+- `pipeline_silent_failures_total` (tenant_id, pipeline_id)
+- `pipeline_latency_drift_detected` (tenant_id, pipeline_id)
+- `pipeline_alerts_active` (tenant_id, severity)
 
 ## Deployment Topology
 

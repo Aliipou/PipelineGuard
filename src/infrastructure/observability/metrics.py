@@ -64,6 +64,28 @@ cost_anomalies_total = Counter(
     registry=REGISTRY,
 )
 
+# PipelineGuard metrics
+pipeline_silent_failures_total = Counter(
+    "pipeline_silent_failures_total",
+    "Total silent pipeline failures detected",
+    labelnames=["tenant_id", "pipeline_id"],
+    registry=REGISTRY,
+)
+
+pipeline_latency_drift_detected = Counter(
+    "pipeline_latency_drift_detected",
+    "Number of latency drift detections",
+    labelnames=["tenant_id", "pipeline_id"],
+    registry=REGISTRY,
+)
+
+pipeline_alerts_active = Gauge(
+    "pipeline_alerts_active",
+    "Currently active (unacknowledged) pipeline alerts",
+    labelnames=["tenant_id", "severity"],
+    registry=REGISTRY,
+)
+
 
 # ======================================================================
 # Middleware for automatic request instrumentation

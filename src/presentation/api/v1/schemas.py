@@ -528,3 +528,234 @@ class AuditLogResponse(_CamelModel):
 
     items: list[AuditLogEntry]
     pagination: PaginationMeta
+
+
+# ---------------------------------------------------------------------------
+# PipelineGuard schemas
+# ---------------------------------------------------------------------------
+
+
+class PipelineStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    DISABLED = "DISABLED"
+
+
+class JobStatus(str, Enum):
+    RUNNING = "RUNNING"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    SILENT_FAILURE = "SILENT_FAILURE"
+
+
+class AlertSeverity(str, Enum):
+    WARNING = "WARNING"
+    CRITICAL = "CRITICAL"
+
+
+class AlertType(str, Enum):
+    SILENT_FAILURE = "SILENT_FAILURE"
+    LATENCY_DRIFT = "LATENCY_DRIFT"
+    CONSECUTIVE_FAILURES = "CONSECUTIVE_FAILURES"
+
+
+class PipelineCreate(_CamelModel):
+    """Request body for registering a new pipeline."""
+
+    name: str = Field(
+        ...,
+        min_length=2,
+        max_length=255,
+        description="Pipeline name.",
+        examples=["Google Ads -> BigQuery"],
+    )
+    source: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Data source platform.",
+        examples=["Google Ads"],
+    )
+    destination: str = Field(
+        ...,
+        min_length=1,
+        max_length=255,
+        description="Data destination.",
+        examples=["BigQuery"],
+    )
+    schedule_cron: str = Field(
+        default="",
+        max_length=100,
+        description="Cron schedule expression.",
+        examples=["0 3 * * *"],
+    )
+    expected_duration_seconds: float = Field(
+        default=0.0,
+        ge=0,
+        description="Expected job duration in seconds.",
+    )
+    timeout_seconds: int = Field(
+        default=3600,
+        ge=60,
+        description="Job timeout in seconds.",
+    )
+    failure_threshold: int = Field(
+        default=3,
+        ge=1,
+        le=100,
+        description="Consecutive failures before CRITICAL alert.",
+    )
+    metadata: dict[str, Any] | None = None
+
+
+class PipelineResponse(_CamelModel):
+    """Pipeline representation returned by the API."""
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    name: str
+    source: str
+    destination: str
+    schedule_cron: str
+    status: PipelineStatus
+    expected_duration_seconds: float
+    timeout_seconds: int
+    failure_threshold: int
+    metadata: dict[str, Any] | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PipelineListResponse(_CamelModel):
+    """Paginated list of pipelines."""
+
+    items: list[PipelineResponse]
+    pagination: PaginationMeta
+
+
+class JobExecutionCreate(_CamelModel):
+    """Request body for reporting a job execution."""
+
+    status: str = Field(
+        ...,
+        description="Job status as reported by the pipeline.",
+        examples=["SUCCEEDED"],
+    )
+    started_at: datetime = Field(
+        ...,
+        description="When the job started.",
+    )
+    finished_at: datetime | None = Field(
+        default=None,
+        description="When the job finished.",
+    )
+    duration_seconds: float = Field(
+        default=0.0,
+        ge=0,
+        description="Job duration in seconds.",
+        examples=[125.3],
+    )
+    records_processed: int = Field(
+        default=0,
+        ge=0,
+        description="Number of records processed.",
+        examples=[0],
+    )
+    error_message: str = Field(
+        default="",
+        max_length=5000,
+        description="Error message if any.",
+    )
+    metadata: dict[str, Any] | None = None
+
+
+class JobExecutionResponse(_CamelModel):
+    """Job execution representation returned by the API."""
+
+    id: uuid.UUID
+    pipeline_id: uuid.UUID
+    tenant_id: uuid.UUID
+    status: JobStatus
+    started_at: datetime
+    finished_at: datetime | None = None
+    duration_seconds: float
+    records_processed: int
+    error_message: str = ""
+    is_silent_failure: bool = False
+    metadata: dict[str, Any] | None = None
+
+
+class JobExecutionListResponse(_CamelModel):
+    """Paginated list of job executions."""
+
+    items: list[JobExecutionResponse]
+    pagination: PaginationMeta
+
+
+class LatencyResponse(_CamelModel):
+    """Latency measurement record."""
+
+    id: uuid.UUID
+    pipeline_id: uuid.UUID
+    tenant_id: uuid.UUID
+    measured_at: datetime
+    duration_seconds: float
+    p50_baseline_seconds: float
+    p95_baseline_seconds: float
+    drift_percentage: float
+
+
+class LatencyListResponse(_CamelModel):
+    """Paginated latency history."""
+
+    items: list[LatencyResponse]
+    pagination: PaginationMeta
+
+
+class AlertResponse(_CamelModel):
+    """Pipeline alert representation."""
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    pipeline_id: uuid.UUID
+    severity: AlertSeverity
+    alert_type: AlertType
+    title: str
+    description: str
+    acknowledged: bool = False
+    acknowledged_by: uuid.UUID | None = None
+    acknowledged_at: datetime | None = None
+    created_at: datetime
+
+
+class AlertListResponse(_CamelModel):
+    """Paginated list of alerts."""
+
+    items: list[AlertResponse]
+    pagination: PaginationMeta
+
+
+class AlertAcknowledge(_CamelModel):
+    """Request body for acknowledging an alert."""
+
+    acknowledged_by: uuid.UUID = Field(
+        ...,
+        description="User ID acknowledging the alert.",
+    )
+
+
+class WeeklySummaryResponse(_CamelModel):
+    """Weekly pipeline health summary."""
+
+    id: uuid.UUID
+    tenant_id: uuid.UUID
+    week_start: date
+    week_end: date
+    total_jobs: int
+    failed_jobs: int
+    silent_failures: int
+    pipelines_with_drift: int
+    avg_drift_percentage: float
+    top_risks: list[dict[str, Any]] | None = None
+    plain_english_summary: str
+    generated_at: datetime
