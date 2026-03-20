@@ -14,6 +14,10 @@ on:
           - staging
           - production
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   deploy:
     name: Deploy to ${{ github.event.inputs.environment || 'staging' }}
@@ -23,48 +27,68 @@ jobs:
       group: deploy-${{ github.event.inputs.environment || 'staging' }}
       cancel-in-progress: false
 
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.REGISTRY_URL }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push images
-        run: |
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t ${{ secrets.REGISTRY_URL }}/api:${IMAGE_TAG} --target production -f deploy/docker/Dockerfile .
-          docker build -t ${{ secrets.REGISTRY_URL }}/worker:${IMAGE_TAG} --target worker -f deploy/docker/Dockerfile .
-          docker push ${{ secrets.REGISTRY_URL }}/api:${IMAGE_TAG}
-          docker push ${{ secrets.REGISTRY_URL }}/worker:${IMAGE_TAG}
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: production
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Run database migrations
+      - name: Build and push worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile
+          target: worker
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set up kubectl
+        if: ${{ secrets.KUBECONFIG != '' }}
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubeconfig
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
-          kubectl -n mt-platform exec deploy/api -- python -m alembic upgrade head
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
 
       - name: Deploy to Kubernetes
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           IMAGE_TAG=${{ github.sha }}
-          kubectl -n mt-platform set image deployment/api api=${{ secrets.REGISTRY_URL }}/api:${IMAGE_TAG}
-          kubectl -n mt-platform set image deployment/celery-worker worker=${{ secrets.REGISTRY_URL }}/worker:${IMAGE_TAG}
+          REGISTRY=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          kubectl -n mt-platform exec deploy/api -- python -m alembic upgrade head
+          kubectl -n mt-platform set image deployment/api api=${REGISTRY}/api:${IMAGE_TAG}
+          kubectl -n mt-platform set image deployment/celery-worker worker=${REGISTRY}/worker:${IMAGE_TAG}
           kubectl -n mt-platform rollout status deployment/api --timeout=120s
           kubectl -n mt-platform rollout status deployment/celery-worker --timeout=120s
 
       - name: Verify deployment
+        if: ${{ secrets.KUBECONFIG != '' }}
         run: |
           kubectl -n mt-platform get pods
           kubectl -n mt-platform exec deploy/api -- curl -sf http://localhost:8000/health
