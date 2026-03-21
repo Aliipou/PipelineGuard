@@ -1,4 +1,4 @@
-"""FastAPI application factory for the EU Multi-Tenant Cloud Platform."""
+"""PipelineGuard API — data pipeline observability platform."""
 
 from __future__ import annotations
 
@@ -22,10 +22,6 @@ from .middleware.tenant_context import TenantContextMiddleware
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
 
-# ---------------------------------------------------------------------------
-# Lifespan (startup / shutdown)
-# ---------------------------------------------------------------------------
-
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -33,11 +29,6 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     container = get_container()
     app.state.container = container
     yield
-
-
-# ---------------------------------------------------------------------------
-# Exception handlers (RFC 9457 Problem Details)
-# ---------------------------------------------------------------------------
 
 
 def _problem_json(
@@ -79,20 +70,19 @@ async def _domain_exception_handler(request: Request, exc: DomainError) -> JSONR
 async def _validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
-    errors = []
-    for err in exc.errors():
-        errors.append(
-            {
-                "field": " -> ".join(str(loc) for loc in err.get("loc", [])),
-                "message": err.get("msg", ""),
-                "type": err.get("type", ""),
-            }
-        )
+    errors = [
+        {
+            "field": " -> ".join(str(loc) for loc in err.get("loc", [])),
+            "message": err.get("msg", ""),
+            "type": err.get("type", ""),
+        }
+        for err in exc.errors()
+    ]
     return _problem_json(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         title="Validation Error",
         detail="The request body or parameters failed validation.",
-        error_type="https://api.eu-platform.example/problems/validation-error",
+        error_type="https://pipelineguard.dev/problems/validation-error",
         instance=str(request.url.path),
         errors=errors,
     )
@@ -107,21 +97,17 @@ async def _generic_exception_handler(request: Request, exc: Exception) -> JSONRe
     )
 
 
-# ---------------------------------------------------------------------------
-# Application factory
-# ---------------------------------------------------------------------------
-
 API_V1_PREFIX = "/api/v1"
 
 
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="EU Multi-Tenant Cloud Platform",
+        title="PipelineGuard",
         version="1.0.0",
         description=(
-            "API for the EU-Grade Multi-Tenant Cloud Platform. Provides "
-            "tenant management, authentication, billing, and GDPR compliance "
-            "endpoints with full data-residency isolation."
+            "Data pipeline observability API. Detects silent failures, tracks "
+            "latency drift against statistical baselines, and delivers weekly "
+            "health summaries with Slack notifications."
         ),
         docs_url="/docs",
         redoc_url="/redoc",
@@ -129,7 +115,6 @@ def create_app() -> FastAPI:
         lifespan=_lifespan,
     )
 
-    # -- CORS
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -139,18 +124,15 @@ def create_app() -> FastAPI:
         expose_headers=["X-Request-ID"],
     )
 
-    # -- Custom middleware
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(TenantContextMiddleware)
 
-    # -- API routers
     app.include_router(tenants.router, prefix=API_V1_PREFIX)
     app.include_router(auth.router, prefix=API_V1_PREFIX)
     app.include_router(billing.router, prefix=API_V1_PREFIX)
     app.include_router(gdpr.router, prefix=API_V1_PREFIX)
     app.include_router(pipelines.router, prefix=API_V1_PREFIX)
 
-    # -- Exception handlers
     app.add_exception_handler(DomainError, _domain_exception_handler)
     app.add_exception_handler(RequestValidationError, _validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, _generic_exception_handler)
@@ -161,10 +143,11 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
-@app.get("/health", tags=["Operations"], summary="Health check", response_model=dict)
+@app.get("/health", tags=["Operations"], summary="Health check")
 async def health_check() -> dict[str, Any]:
     return {
         "status": "healthy",
+        "service": "pipelineguard",
         "version": "1.0.0",
         "timestamp": datetime.now(UTC).isoformat(),
     }
