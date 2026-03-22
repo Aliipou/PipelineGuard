@@ -141,7 +141,7 @@ class PrometheusMetricsCollector(MetricsCollector):
     async def get_memory_usage(
         self, tenant_id: str, start: datetime, end: datetime
     ) -> list[DataPoint]:
-        query = f"sum(container_memory_usage_bytes" f'{{tenant_id="{tenant_id}"}}) by (tenant_id)'
+        query = f'sum(container_memory_usage_bytes{{tenant_id="{tenant_id}"}}) by (tenant_id)'
         return await self._client.query_range(query, start, end)
 
     async def get_storage_usage(self, tenant_id: str) -> int:

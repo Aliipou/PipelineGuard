@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
 from infrastructure.auth.rbac import (
     ROLE_PERMISSIONS,
     Permission,

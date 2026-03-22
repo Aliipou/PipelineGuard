@@ -17,7 +17,6 @@ DEFAULT_PRICING: dict[ResourceType, Decimal] = {
 
 
 class CostCalculator:
-
     def calculate_cost(
         self,
         resource_type: ResourceType,

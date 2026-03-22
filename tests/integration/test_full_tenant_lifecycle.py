@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from domain.exceptions import InvalidStateTransitionError
 from domain.models.tenant import Tenant, TenantStatus
@@ -24,7 +25,6 @@ def _do_transition(
 
 @pytest.mark.integration
 class TestFullTenantLifecycle:
-
     def _make_tenant(self, **overrides) -> Tenant:
         defaults = dict(
             id=uuid4(),

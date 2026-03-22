@@ -48,7 +48,7 @@ jobs:
           pip install pydantic pydantic-settings fastapi sqlalchemy alembic httpx
 
       - name: Run unit tests
-        run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing -m "unit"
+        run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -97,7 +97,7 @@ jobs:
           pip install pydantic pydantic-settings fastapi sqlalchemy asyncpg alembic redis httpx
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v -m "integration"
+        run: pytest tests/integration/ -v
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432

@@ -49,9 +49,8 @@ def scan_silent_failures(self: Any) -> dict[str, Any]:
                     # SILENT_FAILURE or is_silent_failure == True).
                     if ex.is_silent_failure or ex.status == JobStatus.SILENT_FAILURE:
                         continue  # already processed
-                    if (
-                        ex.status == JobStatus.SUCCEEDED
-                        and (ex.records_processed == 0 or ex.error_message)
+                    if ex.status == JobStatus.SUCCEEDED and (
+                        ex.records_processed == 0 or ex.error_message
                     ):
                         # TODO: Ideally, update the existing execution's status
                         # in-place rather than creating a new record. For now,
@@ -118,16 +117,12 @@ def check_latency_drift(self: Any) -> dict[str, Any]:
                 )
                 for pipeline in pipelines:
                     try:
-                        is_drifting = container.pipeline_service.check_latency_drift(
-                            pipeline.id
-                        )
+                        is_drifting = container.pipeline_service.check_latency_drift(pipeline.id)
                         pipelines_checked += 1
                         if is_drifting:
                             drift_detected += 1
                     except Exception:
-                        logger.exception(
-                            "Drift check failed for pipeline %s", pipeline.id
-                        )
+                        logger.exception("Drift check failed for pipeline %s", pipeline.id)
             except Exception:
                 logger.exception("Drift check failed for tenant %s", tenant.id)
 

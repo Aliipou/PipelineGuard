@@ -16,15 +16,15 @@ TENANT_HEADERS = {"X-Tenant-ID": TENANT_ID}
 
 @pytest.fixture
 def client():
-    from presentation.main import create_app
     from starlette.testclient import TestClient
+
+    from presentation.main import create_app
 
     return TestClient(create_app())
 
 
 @pytest.mark.contract
 class TestPipelineValidation:
-
     def test_create_pipeline_missing_name(self, client) -> None:
         resp = client.post(
             f"/api/v1/tenants/{TENANT_ID}/pipelines",
@@ -82,7 +82,6 @@ class TestPipelineValidation:
 
 @pytest.mark.contract
 class TestExecutionValidation:
-
     def _create_pipeline(self, client) -> str:
         resp = client.post(
             f"/api/v1/tenants/{TENANT_ID}/pipelines",
@@ -151,7 +150,6 @@ class TestExecutionValidation:
 
 @pytest.mark.contract
 class TestPipelineResponseSchemas:
-
     def test_list_pipelines_response_shape(self, client) -> None:
         resp = client.get(
             f"/api/v1/tenants/{TENANT_ID}/pipelines",
@@ -199,7 +197,6 @@ class TestPipelineResponseSchemas:
 
 @pytest.mark.contract
 class TestPipelineRFC9457:
-
     def test_pipeline_not_found_returns_problem_json(self, client) -> None:
         fake_id = str(uuid.uuid4())
         resp = client.get(

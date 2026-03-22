@@ -1,7 +1,7 @@
 """Tests for src/domain/models/audit.py"""
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from domain.models.audit import AuditAction, AuditEntry, _compute_entry_hash
@@ -30,7 +30,7 @@ class TestAuditAction:
 class TestComputeEntryHash:
     def test_returns_sha256_hex(self):
         tenant_id = uuid4()
-        ts = datetime.now(timezone.utc)
+        ts = datetime.now(UTC)
         h = _compute_entry_hash("prev", AuditAction.TENANT_CREATED, tenant_id, ts)
         assert isinstance(h, str)
         assert len(h) == 64
@@ -38,14 +38,14 @@ class TestComputeEntryHash:
 
     def test_same_inputs_same_hash(self):
         tenant_id = uuid4()
-        ts = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        ts = datetime(2025, 1, 1, tzinfo=UTC)
         h1 = _compute_entry_hash("", AuditAction.USER_LOGIN, tenant_id, ts)
         h2 = _compute_entry_hash("", AuditAction.USER_LOGIN, tenant_id, ts)
         assert h1 == h2
 
     def test_different_inputs_different_hash(self):
         tenant_id = uuid4()
-        ts = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        ts = datetime(2025, 1, 1, tzinfo=UTC)
         h1 = _compute_entry_hash("", AuditAction.USER_LOGIN, tenant_id, ts)
         h2 = _compute_entry_hash("x", AuditAction.USER_LOGIN, tenant_id, ts)
         assert h1 != h2

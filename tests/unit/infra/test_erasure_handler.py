@@ -8,7 +8,6 @@ import pytest
 
 from infrastructure.gdpr.erasure_handler import (
     ErasureHandler,
-    ErasureResult,
     ErasureStep,
 )
 

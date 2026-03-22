@@ -173,7 +173,7 @@ class TenantSchemaManager:
     @staticmethod
     def _check_exists(conn: Any, schema: str) -> bool:
         result = conn.execute(
-            text("SELECT 1 FROM information_schema.schemata " "WHERE schema_name = :schema"),
+            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :schema"),
             {"schema": schema},
         )
         return result.fetchone() is not None
@@ -247,7 +247,7 @@ class AsyncTenantSchemaManager:
     @staticmethod
     async def _check_exists(conn: Any, schema: str) -> bool:
         result = await conn.execute(
-            text("SELECT 1 FROM information_schema.schemata " "WHERE schema_name = :schema"),
+            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :schema"),
             {"schema": schema},
         )
         return result.fetchone() is not None

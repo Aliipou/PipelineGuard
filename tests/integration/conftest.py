@@ -53,8 +53,8 @@ def db_session(sync_engine):
     """Provide a scoped database session with rollback."""
     from sqlalchemy.orm import sessionmaker
 
-    Session = sessionmaker(bind=sync_engine)
-    session = Session()
+    session_factory = sessionmaker(bind=sync_engine)
+    session = session_factory()
     yield session
     session.rollback()
     session.close()

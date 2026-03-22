@@ -2,16 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
-from domain.models.user import TenantRole, User
+import pytest
+
+from domain.models.user import User
 from infrastructure.adapters import InMemoryUserRepository
 
 
 @pytest.mark.integration
 class TestUserRepository:
-
     def test_save_and_get_by_id(self):
         repo = InMemoryUserRepository()
         user = User(id=uuid4(), email="a@b.com", full_name="A B")

@@ -4,7 +4,9 @@ When a pipeline fails repeatedly, PipelineGuard should not send
 a new alert for every single execution. The deduplicator suppresses
 duplicate alerts within a configurable cooldown window.
 """
+
 from __future__ import annotations
+
 import time
 from dataclasses import dataclass, field
 

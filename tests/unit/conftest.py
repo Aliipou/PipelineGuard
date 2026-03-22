@@ -3,20 +3,15 @@
 from __future__ import annotations
 
 import sys
-from datetime import date, datetime, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
-from unittest.mock import MagicMock
-from uuid import UUID, uuid4
+from uuid import UUID
 
 import pytest
 
 # Ensure src is importable
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from domain.models.audit import AuditAction, AuditEntry
-from domain.models.billing import CostAnomaly, CostRecord, Invoice, ResourceType, UsageRecord
 from domain.models.tenant import Tenant, TenantStatus
 from domain.models.user import TenantRole, User
 from domain.services.cost_calculator import CostCalculator
@@ -24,13 +19,9 @@ from domain.services.tenant_lifecycle import TenantLifecycleService
 from infrastructure.adapters import (
     InMemoryAnomalyRepository,
     InMemoryAuditRepository,
-    InMemoryCacheManager,
     InMemoryCostRepository,
-    InMemoryExportJobRepository,
     InMemoryInvoiceRepository,
     InMemoryRefreshTokenStore,
-    InMemoryRetentionRepository,
-    InMemoryTenantDataRepository,
     InMemoryTenantRepository,
     InMemoryUsageRepository,
     InMemoryUserRepository,
@@ -40,7 +31,7 @@ from infrastructure.adapters import (
 
 TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 USER_ID = UUID("00000000-0000-0000-0000-000000000002")
-NOW = datetime(2026, 2, 17, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 2, 17, 12, 0, 0, tzinfo=UTC)
 
 
 @pytest.fixture

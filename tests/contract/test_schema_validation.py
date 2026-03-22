@@ -16,15 +16,15 @@ TENANT_HEADERS = {"X-Tenant-ID": str(uuid.uuid4())}
 
 @pytest.fixture
 def client():
-    from presentation.main import create_app
     from starlette.testclient import TestClient
+
+    from presentation.main import create_app
 
     return TestClient(create_app())
 
 
 @pytest.mark.contract
 class TestTenantValidation:
-
     def test_create_tenant_missing_name(self, client):
         resp = client.post(
             "/api/v1/tenants",
@@ -75,7 +75,6 @@ class TestTenantValidation:
 
 @pytest.mark.contract
 class TestAuthValidation:
-
     def test_register_weak_password(self, client):
         resp = client.post(
             "/api/v1/auth/register",
@@ -109,7 +108,6 @@ class TestAuthValidation:
 
 @pytest.mark.contract
 class TestRFC9457Format:
-
     def test_validation_error_has_all_fields(self, client):
         resp = client.post("/api/v1/tenants", json={}, headers=TENANT_HEADERS)
         assert resp.status_code == 422

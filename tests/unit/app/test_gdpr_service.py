@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch
 from uuid import uuid4
 
-from domain.models.tenant import Tenant, TenantStatus
-from domain.services.tenant_lifecycle import TenantLifecycleService
+import pytest
+
 from application.services.gdpr_service import (
-    ExportJobStatus,
     GDPRService,
     RetentionPolicy,
 )
+from domain.models.tenant import Tenant, TenantStatus
+from domain.services.tenant_lifecycle import TenantLifecycleService
 from infrastructure.adapters import (
     InMemoryAuditRepository,
     InMemoryCacheManager,
@@ -57,7 +56,6 @@ def svc(tenant_repo):
 
 
 class TestExportTenantData:
-
     def test_export_returns_job_id(self, svc, active_tenant):
         import sys
         from unittest.mock import MagicMock
@@ -92,14 +90,12 @@ class TestExportTenantData:
 
 
 class TestGetExportStatus:
-
     def test_nonexistent_job_raises(self, svc):
         with pytest.raises(ValueError, match="Export job not found"):
             svc.get_export_status("nonexistent-job-id")
 
 
 class TestExecuteErasure:
-
     def test_erasure_deletes_tenant(self, svc, active_tenant):
         result = svc.execute_erasure(active_tenant.id)
         assert result.tenant_id == active_tenant.id
@@ -125,7 +121,6 @@ class TestExecuteErasure:
 
 
 class TestRetentionPolicy:
-
     def test_get_default_policy(self, svc, active_tenant):
         policy = svc.get_retention_policy(active_tenant.id)
         assert policy.tenant_id == active_tenant.id
@@ -149,7 +144,6 @@ class TestRetentionPolicy:
 
 
 class TestRetentionCleanup:
-
     def test_cleanup_returns_result(self, svc, active_tenant):
         result = svc.run_retention_cleanup(active_tenant.id)
         assert result.tenant_id == active_tenant.id

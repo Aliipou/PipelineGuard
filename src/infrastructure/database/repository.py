@@ -85,12 +85,12 @@ class TenantRepository:
     async def get_by_id(self, tenant_id: uuid.UUID) -> TenantModel | None:
         stmt = select(TenantModel).where(TenantModel.id == tenant_id)
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def get_by_slug(self, slug: str) -> TenantModel | None:
         stmt = select(TenantModel).where(TenantModel.slug == slug)
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def list_all(
         self,
@@ -104,7 +104,7 @@ class TenantRepository:
             stmt = stmt.where(TenantModel.status == status)
         stmt = stmt.order_by(TenantModel.created_at.desc())
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
     async def update(
         self,
@@ -134,13 +134,13 @@ class TenantRepository:
         )
         result = await self._session.execute(stmt)
         await self._session.flush()
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def delete(self, tenant_id: uuid.UUID) -> bool:
         stmt = delete(TenantModel).where(TenantModel.id == tenant_id)
         result = await self._session.execute(stmt)
         await self._session.flush()
-        return bool(result.rowcount > 0)
+        return bool(result.rowcount > 0)  # type: ignore[attr-defined]
 
 
 # =========================================================================
@@ -185,12 +185,12 @@ class UserRepository:
     async def get_by_id(self, user_id: uuid.UUID) -> UserModel | None:
         stmt = select(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str) -> UserModel | None:
         stmt = select(UserModel).where(UserModel.email == email)
         result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def list_by_tenant(
         self,
@@ -205,7 +205,7 @@ class UserRepository:
             stmt = stmt.where(UserModel.is_active == is_active)
         stmt = stmt.order_by(UserModel.created_at.desc())
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
     async def update(
         self,
@@ -232,13 +232,13 @@ class UserRepository:
         )
         result = await self._session.execute(stmt)
         await self._session.flush()
-        return result.scalar_one_or_none()  # type: ignore[no-any-return]
+        return result.scalar_one_or_none()
 
     async def delete(self, user_id: uuid.UUID) -> bool:
         stmt = delete(UserModel).where(UserModel.id == user_id)
         result = await self._session.execute(stmt)
         await self._session.flush()
-        return bool(result.rowcount > 0)
+        return bool(result.rowcount > 0)  # type: ignore[attr-defined]
 
 
 # =========================================================================
@@ -304,7 +304,7 @@ class BillingRepository:
         stmt = stmt.order_by(UsageRecordModel.recorded_at.desc())
         stmt = stmt.offset(offset).limit(limit)
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
     # ---- Cost Records -------------------------------------------------
 
@@ -352,7 +352,7 @@ class BillingRepository:
         stmt = stmt.order_by(CostRecordModel.created_at.desc())
         stmt = stmt.offset(offset).limit(limit)
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
     # ---- Invoices -----------------------------------------------------
 
@@ -397,7 +397,7 @@ class BillingRepository:
         stmt = stmt.order_by(InvoiceModel.created_at.desc())
         stmt = stmt.offset(offset).limit(limit)
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
 
 # =========================================================================
@@ -461,7 +461,7 @@ class AuditRepository:
         )
         result = await self._session.execute(stmt)
         row = result.scalar_one_or_none()
-        return row  # type: ignore[no-any-return]
+        return row
 
     async def append_entry(
         self,
@@ -549,7 +549,7 @@ class AuditRepository:
         stmt = stmt.order_by(AuditLogModel.timestamp.asc())
         stmt = stmt.offset(offset).limit(limit)
         result = await self._session.execute(stmt)
-        return result.scalars().all()  # type: ignore[no-any-return]
+        return result.scalars().all()
 
     async def verify_chain_integrity(
         self,

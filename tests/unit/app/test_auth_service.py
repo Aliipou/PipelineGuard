@@ -2,27 +2,28 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
-from domain.models.tenant import Tenant, TenantStatus
-from domain.models.user import TenantRole
+import pytest
+from cryptography.hazmat.primitives import serialization
+
+# RSA key pair for tests (small, fast)
+from cryptography.hazmat.primitives.asymmetric import rsa
+
 from application.services.auth_service import (
-    AuthService,
     AuthenticationError,
+    AuthService,
     InvalidTokenError,
     UserAlreadyExistsError,
 )
+from domain.models.tenant import Tenant, TenantStatus
+from domain.models.user import TenantRole
 from infrastructure.adapters import (
     InMemoryAuditRepository,
     InMemoryRefreshTokenStore,
     InMemoryTenantRepository,
     InMemoryUserRepository,
 )
-
-# RSA key pair for tests (small, fast)
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 
 
 def _generate_rsa_keys():
@@ -83,7 +84,6 @@ def auth_svc(repos):
 
 
 class TestRegister:
-
     def test_register_first_user_is_owner(self, auth_svc, active_tenant):
         user = auth_svc.register_user(
             tenant_id=active_tenant.id,
@@ -128,7 +128,6 @@ class TestRegister:
 
 
 class TestAuthenticate:
-
     def test_login_success(self, auth_svc, active_tenant):
         auth_svc.register_user(active_tenant.id, "login@test.com", "S3cret!Pass#", "Login")
         tokens = auth_svc.authenticate("login@test.com", "S3cret!Pass#")
@@ -154,7 +153,6 @@ class TestAuthenticate:
 
 
 class TestRefreshToken:
-
     def test_refresh_returns_new_pair(self, auth_svc, active_tenant):
         auth_svc.register_user(active_tenant.id, "ref@test.com", "S3cret!Pass#", "Ref")
         pair1 = auth_svc.authenticate("ref@test.com", "S3cret!Pass#")
@@ -175,7 +173,6 @@ class TestRefreshToken:
 
 
 class TestGetCurrentUser:
-
     def test_decode_valid_token(self, auth_svc, active_tenant):
         auth_svc.register_user(active_tenant.id, "cur@test.com", "S3cret!Pass#", "Current")
         tokens = auth_svc.authenticate("cur@test.com", "S3cret!Pass#")

@@ -55,7 +55,6 @@ _TRANSITION_ACTIONS: dict[tuple[TenantStatus, TenantStatus], list[str]] = {
 
 
 class TenantLifecycleService:
-
     def validate_transition(
         self,
         current_state: TenantStatus,

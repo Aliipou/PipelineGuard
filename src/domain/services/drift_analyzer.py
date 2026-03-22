@@ -40,9 +40,9 @@ class DriftAnalyzer:
         Uses the last ``window_size`` samples as the rolling baseline.
         A pipeline is considered drifting when the current duration
         exceeds p50 + drift_threshold (default 25%).
-        A pipeline is flagged as anomaly when |z-score| > z_score_threshold (default 2.5σ).
+        A pipeline is flagged as anomaly when |z-score| > z_score_threshold (default 2.5 sigma).
         """
-        window = historical_durations[-self._window_size:]
+        window = historical_durations[-self._window_size :]
 
         if len(window) < 2:
             return DriftResult(
@@ -67,10 +67,7 @@ class DriftAnalyzer:
         except statistics.StatisticsError:
             std = 0.0
 
-        if std > 0:
-            z_score = (current_duration - mean) / std
-        else:
-            z_score = 0.0
+        z_score = (current_duration - mean) / std if std > 0 else 0.0
 
         is_anomaly = abs(z_score) > self._z_score_threshold
 

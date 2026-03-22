@@ -84,8 +84,8 @@ def build_async_engine(settings: DatabaseSettings | None = None) -> AsyncEngine:
 
 _sync_engine: Engine | None = None
 _async_engine: AsyncEngine | None = None
-_SyncSessionFactory: sessionmaker | None = None
-_AsyncSessionFactory: async_sessionmaker | None = None
+_SyncSessionFactory: sessionmaker[Session] | None = None
+_AsyncSessionFactory: async_sessionmaker[AsyncSession] | None = None
 
 
 def get_sync_engine(settings: DatabaseSettings | None = None) -> Engine:
@@ -104,7 +104,7 @@ def get_async_engine(settings: DatabaseSettings | None = None) -> AsyncEngine:
     return _async_engine
 
 
-def _sync_session_factory() -> sessionmaker:
+def _sync_session_factory() -> sessionmaker[Session]:
     global _SyncSessionFactory
     if _SyncSessionFactory is None:
         _SyncSessionFactory = sessionmaker(
@@ -114,7 +114,7 @@ def _sync_session_factory() -> sessionmaker:
     return _SyncSessionFactory
 
 
-def _async_session_factory() -> async_sessionmaker:
+def _async_session_factory() -> async_sessionmaker[AsyncSession]:
     global _AsyncSessionFactory
     if _AsyncSessionFactory is None:
         _AsyncSessionFactory = async_sessionmaker(

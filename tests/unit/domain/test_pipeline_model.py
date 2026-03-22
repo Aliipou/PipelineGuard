@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from uuid import uuid4
-
 from domain.models.pipeline import (
     AlertSeverity,
     AlertType,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from infrastructure.cost.anomaly_detector import AnomalyDetector, AnomalyResult
+from infrastructure.cost.anomaly_detector import AnomalyDetector
 
 
 @pytest.fixture

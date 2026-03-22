@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import uuid4
 
+import pytest
+
+from application.services.billing_service import BillingService
 from domain.models.billing import CostRecord, ResourceType, UsageRecord
 from domain.services.cost_calculator import CostCalculator
-from application.services.billing_service import BillingService
 from infrastructure.adapters import (
     InMemoryAnomalyRepository,
     InMemoryAuditRepository,
@@ -32,7 +33,6 @@ def svc():
 
 
 class TestRecordUsage:
-
     def test_record_returns_usage_record(self, svc):
         rec = svc.record_usage(
             tenant_id=uuid4(),
@@ -51,11 +51,10 @@ class TestRecordUsage:
 
 
 class TestCalculateDailyCosts:
-
     def test_aggregates_by_resource_type(self, svc):
         tid = uuid4()
         today = date.today()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         # Add 2 CPU records for the same day
         svc._usage_repo.save(
             UsageRecord(
@@ -86,7 +85,6 @@ class TestCalculateDailyCosts:
 
 
 class TestGetCostBreakdown:
-
     def test_breakdown_totals(self, svc):
         tid = uuid4()
         today = date.today()
@@ -117,7 +115,6 @@ class TestGetCostBreakdown:
 
 
 class TestGenerateInvoice:
-
     def test_invoice_created_with_costs(self, svc):
         tid = uuid4()
         start = date(2026, 1, 1)
@@ -146,7 +143,6 @@ class TestGenerateInvoice:
 
 
 class TestProjectMonthlyCost:
-
     def test_projection_with_data(self, svc):
         tid = uuid4()
         today = date.today()

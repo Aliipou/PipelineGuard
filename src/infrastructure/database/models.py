@@ -18,7 +18,7 @@ from __future__ import annotations
 import enum
 import uuid
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -51,7 +51,7 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-class Base(DeclarativeBase):  # type: ignore[misc]
+class Base(DeclarativeBase):
     """Shared declarative base for every ORM model."""
 
     pass
@@ -141,7 +141,7 @@ class TenantModel(Base):
         default=TenantTier.FREE,
     )
     domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True, default=None)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True, default=None)
     data_residency_region: Mapped[str] = mapped_column(
         String(10), nullable=False, default="eu-west-1"
     )
@@ -258,7 +258,7 @@ class UsageRecordModel(Base):
     resource_type: Mapped[str] = mapped_column(String(100), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(18, 6), nullable=False)
     unit: Mapped[str] = mapped_column(String(50), nullable=False)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -269,8 +269,7 @@ class UsageRecordModel(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<UsageRecord(id={self.id!r}, resource={self.resource_type!r}, "
-            f"qty={self.quantity!r})>"
+            f"<UsageRecord(id={self.id!r}, resource={self.resource_type!r}, qty={self.quantity!r})>"
         )
 
 
@@ -312,7 +311,7 @@ class CostRecordModel(Base):
         ForeignKey("invoices.id", ondelete="SET NULL"),
         nullable=True,
     )
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -369,7 +368,7 @@ class InvoiceModel(Base):
     period_end: Mapped[date] = mapped_column(nullable=False)
     issued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -387,9 +386,7 @@ class InvoiceModel(Base):
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<Invoice(id={self.id!r}, number={self.invoice_number!r}, " f"status={self.status!r})>"
-        )
+        return f"<Invoice(id={self.id!r}, number={self.invoice_number!r}, status={self.status!r})>"
 
 
 # ---------------------------------------------------------------------------
@@ -437,7 +434,7 @@ class AuditLogModel(Base):
     )
     resource_type: Mapped[str] = mapped_column(String(100), nullable=False)
     resource_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    details: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
     chain_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -450,9 +447,7 @@ class AuditLogModel(Base):
     tenant: Mapped[TenantModel] = relationship(back_populates="audit_logs")
 
     def __repr__(self) -> str:
-        return (
-            f"<AuditLog(id={self.id!r}, action={self.action!r}, " f"tenant_id={self.tenant_id!r})>"
-        )
+        return f"<AuditLog(id={self.id!r}, action={self.action!r}, tenant_id={self.tenant_id!r})>"
 
 
 # ---------------------------------------------------------------------------
@@ -524,7 +519,7 @@ class PipelineModel(Base):
     )
     timeout_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=3600)
     failure_threshold: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -588,7 +583,7 @@ class JobExecutionModel(Base):
     records_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_message: Mapped[str] = mapped_column(Text, nullable=False, default="")
     is_silent_failure: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    metadata_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
 
     pipeline: Mapped[PipelineModel] = relationship(back_populates="job_executions")
 
@@ -628,12 +623,8 @@ class LatencyRecordModel(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     duration_seconds: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0.0)
-    p50_baseline_seconds: Mapped[float] = mapped_column(
-        Numeric(12, 2), nullable=False, default=0.0
-    )
-    p95_baseline_seconds: Mapped[float] = mapped_column(
-        Numeric(12, 2), nullable=False, default=0.0
-    )
+    p50_baseline_seconds: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0.0)
+    p95_baseline_seconds: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False, default=0.0)
     drift_percentage: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0.0)
 
     pipeline: Mapped[PipelineModel] = relationship(back_populates="latency_records")
@@ -685,12 +676,8 @@ class PipelineAlertModel(Base):
     title: Mapped[str] = mapped_column(String(500), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
-    acknowledged_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    acknowledged_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -699,8 +686,7 @@ class PipelineAlertModel(Base):
 
     def __repr__(self) -> str:
         return (
-            f"<PipelineAlert(id={self.id!r}, type={self.alert_type!r}, "
-            f"severity={self.severity!r})>"
+            f"<PipelineAlert(id={self.id!r}, type={self.alert_type!r}, severity={self.severity!r})>"
         )
 
 
@@ -733,7 +719,7 @@ class WeeklySummaryModel(Base):
     silent_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     pipelines_with_drift: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     avg_drift_percentage: Mapped[float] = mapped_column(Numeric(8, 2), nullable=False, default=0.0)
-    top_risks: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    top_risks: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     plain_english_summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
     generated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

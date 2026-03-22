@@ -3,6 +3,7 @@
 Delivers alert payloads to a Slack channel via incoming webhooks.
 Uses Block Kit for rich formatting with severity color coding.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,18 +15,18 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 SEVERITY_COLORS = {
-    "CRITICAL": "#E01E5A",   # red
-    "WARNING":  "#ECB22E",   # yellow
+    "CRITICAL": "#E01E5A",  # red
+    "WARNING": "#ECB22E",  # yellow
 }
 
 SEVERITY_EMOJI = {
     "CRITICAL": ":red_circle:",
-    "WARNING":  ":large_yellow_circle:",
+    "WARNING": ":large_yellow_circle:",
 }
 
 ALERT_TYPE_LABELS = {
-    "SILENT_FAILURE":       "Silent Failure",
-    "LATENCY_DRIFT":        "Latency Drift",
+    "SILENT_FAILURE": "Silent Failure",
+    "LATENCY_DRIFT": "Latency Drift",
     "CONSECUTIVE_FAILURES": "Consecutive Failures",
 }
 
@@ -33,6 +34,7 @@ ALERT_TYPE_LABELS = {
 @dataclass(frozen=True)
 class AlertPayload:
     """Data needed to format a Slack alert message."""
+
     severity: str
     alert_type: str
     title: str
@@ -75,7 +77,7 @@ class SlackNotifier:
                         "Slack delivery failed",
                         extra={"status": resp.status, "alert_id": alert.alert_id},
                     )
-                return success
+                return bool(success)
         except Exception:
             logger.exception(
                 "Slack notification error",
@@ -149,6 +151,6 @@ class SlackNotifier:
 class NullNotifier:
     """No-op notifier used when no Slack webhook is configured."""
 
-    def send_alert(self, alert: AlertPayload) -> bool:  # noqa: ARG002
+    def send_alert(self, alert: AlertPayload) -> bool:
         logger.debug("Null notifier: alert %s not delivered", alert.alert_id)
         return True

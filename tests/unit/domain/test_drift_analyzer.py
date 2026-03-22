@@ -80,9 +80,28 @@ class TestDriftAnalyzer:
 
     def test_z_score_anomaly_detected(self) -> None:
         # Baseline: cluster around 100 with natural variance, then a huge outlier → |z| >> 2.5
-        historical = [95.0, 100.0, 105.0, 98.0, 102.0, 99.0, 101.0, 97.0,
-                      103.0, 100.0, 98.0, 102.0, 100.0, 99.0, 101.0, 100.0,
-                      98.0, 103.0, 97.0, 102.0]
+        historical = [
+            95.0,
+            100.0,
+            105.0,
+            98.0,
+            102.0,
+            99.0,
+            101.0,
+            97.0,
+            103.0,
+            100.0,
+            98.0,
+            102.0,
+            100.0,
+            99.0,
+            101.0,
+            100.0,
+            98.0,
+            103.0,
+            97.0,
+            102.0,
+        ]
         result = self.analyzer.analyze(500.0, historical)
         assert result.is_anomaly is True
         assert result.z_score > 2.5
@@ -115,9 +134,28 @@ class TestDriftAnalyzer:
 
     def test_anomaly_negative_z_score(self) -> None:
         # A job that ran impossibly fast is also an anomaly (negative z)
-        historical = [95.0, 100.0, 105.0, 98.0, 102.0, 99.0, 101.0, 97.0,
-                      103.0, 100.0, 98.0, 102.0, 100.0, 99.0, 101.0, 100.0,
-                      98.0, 103.0, 97.0, 102.0]
+        historical = [
+            95.0,
+            100.0,
+            105.0,
+            98.0,
+            102.0,
+            99.0,
+            101.0,
+            97.0,
+            103.0,
+            100.0,
+            98.0,
+            102.0,
+            100.0,
+            99.0,
+            101.0,
+            100.0,
+            98.0,
+            103.0,
+            97.0,
+            102.0,
+        ]
         result = self.analyzer.analyze(1.0, historical)
         assert result.is_anomaly is True
         assert result.z_score < -2.5

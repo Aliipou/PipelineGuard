@@ -1,4 +1,5 @@
 """Tests for the PipelineGuard Python SDK."""
+
 from __future__ import annotations
 
 import json
@@ -62,7 +63,10 @@ class TestGuardDecorator:
             reports.append(kwargs)
             return {"id": "abc"}
 
-        with patch("pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report):
+        with patch(
+            "pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report
+        ):
+
             @guard(
                 pipeline_id="pipe-uuid",
                 tenant_id="tenant-uuid",
@@ -86,7 +90,10 @@ class TestGuardDecorator:
             reports.append(kwargs)
             return {}
 
-        with patch("pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report):
+        with patch(
+            "pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report
+        ):
+
             @guard(
                 pipeline_id="pipe-uuid",
                 tenant_id="tenant-uuid",
@@ -111,7 +118,10 @@ class TestGuardDecorator:
             reports.append(kwargs)
             return {}
 
-        with patch("pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report):
+        with patch(
+            "pipelineguard.sdk.PipelineGuardClient.report_execution", side_effect=mock_report
+        ):
+
             @guard(
                 pipeline_id="pipe-uuid",
                 tenant_id="tenant-uuid",

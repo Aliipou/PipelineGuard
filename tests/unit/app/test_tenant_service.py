@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
+from application.services.tenant_service import TenantService
 from domain.exceptions import (
     InvalidStateTransitionError,
     TenantAlreadyExistsError,
     TenantNotFoundError,
 )
-from domain.models.tenant import Tenant, TenantStatus
+from domain.models.tenant import TenantStatus
 from domain.services.tenant_lifecycle import TenantLifecycleService
-from application.services.tenant_service import TenantService
 from infrastructure.adapters import (
     InMemoryAuditRepository,
     InMemoryTenantRepository,
@@ -33,7 +34,6 @@ def svc():
 
 
 class TestCreateTenant:
-
     def test_create_tenant_success(self, svc):
         tenant = svc.create_tenant(name="Acme", slug="acme", owner_email="admin@acme.example")
         assert tenant.name == "Acme"
@@ -52,7 +52,6 @@ class TestCreateTenant:
 
 
 class TestGetTenant:
-
     def test_get_existing_tenant(self, svc):
         created = svc.create_tenant(name="T", slug="t", owner_email="t@t.com")
         fetched = svc.get_tenant(created.id)
@@ -64,7 +63,6 @@ class TestGetTenant:
 
 
 class TestListTenants:
-
     def test_list_returns_paginated(self, svc):
         for i in range(5):
             svc.create_tenant(name=f"T{i}", slug=f"t-{i}", owner_email=f"t{i}@x.com")
@@ -81,7 +79,6 @@ class TestListTenants:
 
 
 class TestUpdateTenant:
-
     def test_update_name(self, svc):
         t = svc.create_tenant(name="Old", slug="old", owner_email="o@o.com")
         updated = svc.update_tenant(t.id, {"name": "New"})
@@ -94,7 +91,6 @@ class TestUpdateTenant:
 
 
 class TestSuspendActivate:
-
     def test_suspend_active_tenant(self, svc):
         t = svc.create_tenant(name="S", slug="s", owner_email="s@s.com")
         suspended = svc.suspend_tenant(t.id)
@@ -118,7 +114,6 @@ class TestSuspendActivate:
 
 
 class TestAuditChain:
-
     def test_create_produces_audit_entry(self, svc):
         svc.create_tenant(name="Audit", slug="audit", owner_email="a@a.com")
         # Access internal audit repo to verify

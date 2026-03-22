@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from domain.models.audit import AuditAction, AuditEntry, _compute_entry_hash
 from infrastructure.adapters import InMemoryAuditRepository
@@ -11,7 +12,6 @@ from infrastructure.adapters import InMemoryAuditRepository
 
 @pytest.mark.integration
 class TestAuditRepository:
-
     def test_save_and_get_latest(self):
         repo = InMemoryAuditRepository()
         tid = uuid4()

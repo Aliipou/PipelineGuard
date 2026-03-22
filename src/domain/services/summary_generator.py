@@ -24,10 +24,7 @@ class SummaryGenerator:
 
     def generate(self, data: SummaryInput) -> str:
         success_count = data.total_jobs - data.failed_jobs
-        if data.total_jobs > 0:
-            success_rate = (success_count / data.total_jobs) * 100.0
-        else:
-            success_rate = 100.0
+        success_rate = success_count / data.total_jobs * 100.0 if data.total_jobs > 0 else 100.0
 
         start = data.week_start.strftime("%b %d")
         end = data.week_end.strftime("%b %d, %Y")
@@ -63,8 +60,7 @@ class SummaryGenerator:
 
         lines.append("")
         lines.append(
-            "RECOMMENDATION: Investigate flagged pipelines before they "
-            "impact downstream analytics."
+            "RECOMMENDATION: Investigate flagged pipelines before they impact downstream analytics."
         )
 
         return "\n".join(lines)

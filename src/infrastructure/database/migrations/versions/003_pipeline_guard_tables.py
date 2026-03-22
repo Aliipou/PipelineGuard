@@ -22,12 +22,18 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     # Create enum types
-    pipeline_status = sa.Enum("active", "paused", "disabled", name="pipeline_status", schema="public")
+    pipeline_status = sa.Enum(
+        "active", "paused", "disabled", name="pipeline_status", schema="public"
+    )
     pipeline_status.create(op.get_bind(), checkfirst=True)
 
     job_status = sa.Enum(
-        "running", "succeeded", "failed", "silent_failure",
-        name="job_status", schema="public",
+        "running",
+        "succeeded",
+        "failed",
+        "silent_failure",
+        name="job_status",
+        schema="public",
     )
     job_status.create(op.get_bind(), checkfirst=True)
 
@@ -35,8 +41,11 @@ def upgrade() -> None:
     alert_severity.create(op.get_bind(), checkfirst=True)
 
     alert_type = sa.Enum(
-        "silent_failure", "latency_drift", "consecutive_failures",
-        name="alert_type", schema="public",
+        "silent_failure",
+        "latency_drift",
+        "consecutive_failures",
+        name="alert_type",
+        schema="public",
     )
     alert_type.create(op.get_bind(), checkfirst=True)
 
@@ -44,11 +53,14 @@ def upgrade() -> None:
     op.create_table(
         "pipelines",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True,
+            "id",
+            UUID(as_uuid=True),
+            primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "tenant_id", UUID(as_uuid=True),
+            "tenant_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("public.tenants.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -58,19 +70,25 @@ def upgrade() -> None:
         sa.Column("schedule_cron", sa.String(100), nullable=False, server_default=""),
         sa.Column("status", pipeline_status, nullable=False, server_default="active"),
         sa.Column(
-            "expected_duration_seconds", sa.Numeric(12, 2),
-            nullable=False, server_default="0",
+            "expected_duration_seconds",
+            sa.Numeric(12, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column("timeout_seconds", sa.Integer, nullable=False, server_default="3600"),
         sa.Column("failure_threshold", sa.Integer, nullable=False, server_default="3"),
         sa.Column("metadata_json", JSONB, nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "updated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         schema="public",
     )
@@ -81,29 +99,38 @@ def upgrade() -> None:
     op.create_table(
         "job_executions",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True,
+            "id",
+            UUID(as_uuid=True),
+            primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "pipeline_id", UUID(as_uuid=True),
+            "pipeline_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("public.pipelines.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("tenant_id", UUID(as_uuid=True), nullable=False),
         sa.Column("status", job_status, nullable=False, server_default="running"),
         sa.Column(
-            "started_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "started_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "duration_seconds", sa.Numeric(12, 2),
-            nullable=False, server_default="0",
+            "duration_seconds",
+            sa.Numeric(12, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column("records_processed", sa.Integer, nullable=False, server_default="0"),
         sa.Column("error_message", sa.Text, nullable=False, server_default=""),
         sa.Column(
-            "is_silent_failure", sa.Boolean, nullable=False,
+            "is_silent_failure",
+            sa.Boolean,
+            nullable=False,
             server_default=sa.text("false"),
         ),
         sa.Column("metadata_json", JSONB, nullable=True),
@@ -112,12 +139,8 @@ def upgrade() -> None:
     op.create_index(
         "ix_job_executions_pipeline_id", "job_executions", ["pipeline_id"], schema="public"
     )
-    op.create_index(
-        "ix_job_executions_tenant_id", "job_executions", ["tenant_id"], schema="public"
-    )
-    op.create_index(
-        "ix_job_executions_status", "job_executions", ["status"], schema="public"
-    )
+    op.create_index("ix_job_executions_tenant_id", "job_executions", ["tenant_id"], schema="public")
+    op.create_index("ix_job_executions_status", "job_executions", ["status"], schema="public")
     op.create_index(
         "ix_job_executions_started_at", "job_executions", ["started_at"], schema="public"
     )
@@ -126,34 +149,47 @@ def upgrade() -> None:
     op.create_table(
         "latency_records",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True,
+            "id",
+            UUID(as_uuid=True),
+            primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column(
-            "pipeline_id", UUID(as_uuid=True),
+            "pipeline_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("public.pipelines.id", ondelete="CASCADE"),
             nullable=False,
         ),
         sa.Column("tenant_id", UUID(as_uuid=True), nullable=False),
         sa.Column(
-            "measured_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "measured_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         sa.Column(
-            "duration_seconds", sa.Numeric(12, 2),
-            nullable=False, server_default="0",
+            "duration_seconds",
+            sa.Numeric(12, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column(
-            "p50_baseline_seconds", sa.Numeric(12, 2),
-            nullable=False, server_default="0",
+            "p50_baseline_seconds",
+            sa.Numeric(12, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column(
-            "p95_baseline_seconds", sa.Numeric(12, 2),
-            nullable=False, server_default="0",
+            "p95_baseline_seconds",
+            sa.Numeric(12, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column(
-            "drift_percentage", sa.Numeric(8, 2),
-            nullable=False, server_default="0",
+            "drift_percentage",
+            sa.Numeric(8, 2),
+            nullable=False,
+            server_default="0",
         ),
         schema="public",
     )
@@ -171,12 +207,15 @@ def upgrade() -> None:
     op.create_table(
         "pipeline_alerts",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True,
+            "id",
+            UUID(as_uuid=True),
+            primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("tenant_id", UUID(as_uuid=True), nullable=False),
         sa.Column(
-            "pipeline_id", UUID(as_uuid=True),
+            "pipeline_id",
+            UUID(as_uuid=True),
             sa.ForeignKey("public.pipelines.id", ondelete="CASCADE"),
             nullable=False,
         ),
@@ -185,14 +224,18 @@ def upgrade() -> None:
         sa.Column("title", sa.String(500), nullable=False),
         sa.Column("description", sa.Text, nullable=False, server_default=""),
         sa.Column(
-            "acknowledged", sa.Boolean, nullable=False,
+            "acknowledged",
+            sa.Boolean,
+            nullable=False,
             server_default=sa.text("false"),
         ),
         sa.Column("acknowledged_by", UUID(as_uuid=True), nullable=True),
         sa.Column("acknowledged_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
-            "created_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         schema="public",
     )
@@ -202,9 +245,7 @@ def upgrade() -> None:
     op.create_index(
         "ix_pipeline_alerts_pipeline_id", "pipeline_alerts", ["pipeline_id"], schema="public"
     )
-    op.create_index(
-        "ix_pipeline_alerts_severity", "pipeline_alerts", ["severity"], schema="public"
-    )
+    op.create_index("ix_pipeline_alerts_severity", "pipeline_alerts", ["severity"], schema="public")
     op.create_index(
         "ix_pipeline_alerts_created_at", "pipeline_alerts", ["created_at"], schema="public"
     )
@@ -213,7 +254,9 @@ def upgrade() -> None:
     op.create_table(
         "weekly_summaries",
         sa.Column(
-            "id", UUID(as_uuid=True), primary_key=True,
+            "id",
+            UUID(as_uuid=True),
+            primary_key=True,
             server_default=sa.text("gen_random_uuid()"),
         ),
         sa.Column("tenant_id", UUID(as_uuid=True), nullable=False),
@@ -224,14 +267,18 @@ def upgrade() -> None:
         sa.Column("silent_failures", sa.Integer, nullable=False, server_default="0"),
         sa.Column("pipelines_with_drift", sa.Integer, nullable=False, server_default="0"),
         sa.Column(
-            "avg_drift_percentage", sa.Numeric(8, 2),
-            nullable=False, server_default="0",
+            "avg_drift_percentage",
+            sa.Numeric(8, 2),
+            nullable=False,
+            server_default="0",
         ),
         sa.Column("top_risks", JSONB, nullable=True),
         sa.Column("plain_english_summary", sa.Text, nullable=False, server_default=""),
         sa.Column(
-            "generated_at", sa.DateTime(timezone=True),
-            server_default=sa.text("now()"), nullable=False,
+            "generated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
         ),
         schema="public",
     )

@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 
 from domain.models.billing import CostAnomaly, ResourceType
-from domain.services.cost_calculator import CostCalculator, DEFAULT_PRICING
+from domain.services.cost_calculator import CostCalculator
 
 
 @pytest.fixture

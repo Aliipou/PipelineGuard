@@ -15,7 +15,6 @@ from domain.models.pipeline import (
     LatencyRecord,
     Pipeline,
     PipelineAlert,
-    PipelineStatus,
     WeeklySummary,
 )
 from infrastructure.adapters import (
@@ -54,21 +53,21 @@ class TestPipelineRepository:
     def test_list_by_tenant(self) -> None:
         repo = InMemoryPipelineRepository()
         for i in range(3):
-            repo.save(Pipeline(
-                id=uuid4(), tenant_id=TENANT_ID, name=f"P{i}", source="s", destination="d"
-            ))
-        repo.save(Pipeline(
-            id=uuid4(), tenant_id=uuid4(), name="Other", source="s", destination="d"
-        ))
-        items, total = repo.list_by_tenant(TENANT_ID)
+            repo.save(
+                Pipeline(id=uuid4(), tenant_id=TENANT_ID, name=f"P{i}", source="s", destination="d")
+            )
+        repo.save(
+            Pipeline(id=uuid4(), tenant_id=uuid4(), name="Other", source="s", destination="d")
+        )
+        _items, total = repo.list_by_tenant(TENANT_ID)
         assert total == 3
 
     def test_list_pagination(self) -> None:
         repo = InMemoryPipelineRepository()
         for i in range(5):
-            repo.save(Pipeline(
-                id=uuid4(), tenant_id=TENANT_ID, name=f"P{i}", source="s", destination="d"
-            ))
+            repo.save(
+                Pipeline(id=uuid4(), tenant_id=TENANT_ID, name=f"P{i}", source="s", destination="d")
+            )
         items, total = repo.list_by_tenant(TENANT_ID, offset=2, limit=2)
         assert len(items) == 2
         assert total == 5
@@ -100,27 +99,21 @@ class TestJobExecutionRepository:
     def test_list_by_pipeline(self) -> None:
         repo = InMemoryJobExecutionRepository()
         for _ in range(3):
-            repo.save(JobExecution(
-                id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID
-            ))
-        items, total = repo.list_by_pipeline(PIPELINE_ID)
+            repo.save(JobExecution(id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID))
+        _items, total = repo.list_by_pipeline(PIPELINE_ID)
         assert total == 3
 
     def test_list_recent_by_pipeline(self) -> None:
         repo = InMemoryJobExecutionRepository()
         for _ in range(5):
-            repo.save(JobExecution(
-                id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID
-            ))
+            repo.save(JobExecution(id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID))
         recent = repo.list_recent_by_pipeline(PIPELINE_ID, limit=3)
         assert len(recent) == 3
 
     def test_list_recent_by_tenant(self) -> None:
         repo = InMemoryJobExecutionRepository()
         for _ in range(5):
-            repo.save(JobExecution(
-                id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID
-            ))
+            repo.save(JobExecution(id=uuid4(), pipeline_id=PIPELINE_ID, tenant_id=TENANT_ID))
         recent = repo.list_recent_by_tenant(TENANT_ID, limit=3)
         assert len(recent) == 3
 
@@ -130,24 +123,28 @@ class TestLatencyRecordRepository:
     def test_save_and_list(self) -> None:
         repo = InMemoryLatencyRecordRepository()
         for i in range(5):
-            repo.save(LatencyRecord(
-                id=uuid4(),
-                pipeline_id=PIPELINE_ID,
-                tenant_id=TENANT_ID,
-                duration_seconds=100.0 + i,
-            ))
-        items, total = repo.list_by_pipeline(PIPELINE_ID)
+            repo.save(
+                LatencyRecord(
+                    id=uuid4(),
+                    pipeline_id=PIPELINE_ID,
+                    tenant_id=TENANT_ID,
+                    duration_seconds=100.0 + i,
+                )
+            )
+        _items, total = repo.list_by_pipeline(PIPELINE_ID)
         assert total == 5
 
     def test_get_recent_durations(self) -> None:
         repo = InMemoryLatencyRecordRepository()
         for i in range(10):
-            repo.save(LatencyRecord(
-                id=uuid4(),
-                pipeline_id=PIPELINE_ID,
-                tenant_id=TENANT_ID,
-                duration_seconds=float(i * 10),
-            ))
+            repo.save(
+                LatencyRecord(
+                    id=uuid4(),
+                    pipeline_id=PIPELINE_ID,
+                    tenant_id=TENANT_ID,
+                    duration_seconds=float(i * 10),
+                )
+            )
         durations = repo.get_recent_durations(PIPELINE_ID, limit=5)
         assert len(durations) == 5
         assert durations == [50.0, 60.0, 70.0, 80.0, 90.0]
@@ -173,13 +170,15 @@ class TestPipelineAlertRepository:
     def test_list_by_tenant(self) -> None:
         repo = InMemoryPipelineAlertRepository()
         for _ in range(3):
-            repo.save(PipelineAlert(
-                id=uuid4(),
-                tenant_id=TENANT_ID,
-                pipeline_id=PIPELINE_ID,
-                title="Alert",
-            ))
-        items, total = repo.list_by_tenant(TENANT_ID)
+            repo.save(
+                PipelineAlert(
+                    id=uuid4(),
+                    tenant_id=TENANT_ID,
+                    pipeline_id=PIPELINE_ID,
+                    title="Alert",
+                )
+            )
+        _items, total = repo.list_by_tenant(TENANT_ID)
         assert total == 3
 
     def test_update(self) -> None:

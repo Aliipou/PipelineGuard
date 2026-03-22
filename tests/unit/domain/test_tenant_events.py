@@ -1,6 +1,6 @@
 """Tests for src/domain/events/tenant_events.py"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from domain.events.tenant_events import (
@@ -26,7 +26,7 @@ class TestTenantEventBase:
         event = TenantEvent()
         assert isinstance(event.timestamp, datetime)
         assert event.timestamp.tzinfo is not None
-        assert event.timestamp.tzinfo == timezone.utc
+        assert event.timestamp.tzinfo == UTC
 
     def test_default_event_type_is_empty(self):
         event = TenantEvent()

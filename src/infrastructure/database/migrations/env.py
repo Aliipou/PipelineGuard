@@ -51,6 +51,7 @@ def run_migrations_online() -> None:
     """Run migrations in 'online' mode — connects to database."""
     schema = get_tenant_schema()
 
+    assert db_url is not None, "DATABASE_URL or sqlalchemy.url must be set"
     connectable = create_engine(db_url, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:

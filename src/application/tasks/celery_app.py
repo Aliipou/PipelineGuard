@@ -9,11 +9,12 @@ from __future__ import annotations
 import datetime
 import json
 import os
+from typing import Any
 
 from celery import Celery
+from celery.exceptions import MaxRetriesExceededError
 from celery.schedules import crontab
 from celery.signals import task_failure
-from celery.exceptions import MaxRetriesExceededError
 
 app = Celery("eu_multitenant")
 
@@ -65,7 +66,7 @@ app.conf.task_annotations = {
 app.conf.task_acks_late = True
 app.conf.worker_prefetch_multiplier = 1
 app.conf.task_track_started = True
-app.conf.task_time_limit = 3600       # hard limit: 1 hour
+app.conf.task_time_limit = 3600  # hard limit: 1 hour
 app.conf.task_soft_time_limit = 3300  # soft limit: 55 minutes
 app.conf.timezone = "UTC"
 
@@ -106,8 +107,10 @@ app.conf.beat_schedule = {
 # ---------------------------------------------------------------------------
 
 
-@app.task(name="application.tasks.celery_app.store_dead_letter", queue="dead_letter")
-def store_dead_letter(task_name: str, task_id: str, error: str, args: list, kwargs: dict) -> None:
+@app.task(name="application.tasks.celery_app.store_dead_letter", queue="dead_letter")  # type: ignore[untyped-decorator]
+def store_dead_letter(
+    task_name: str, task_id: str, error: str, args: list[Any], kwargs: dict[str, Any]
+) -> None:
     """Persist a dead-lettered task to Redis for later inspection."""
     import redis as redis_lib
 
@@ -127,8 +130,15 @@ def store_dead_letter(task_name: str, task_id: str, error: str, args: list, kwar
     r.ltrim("dead_letter_queue", 0, 999)  # keep last 1000 entries
 
 
-@task_failure.connect
-def on_task_failure(sender=None, task_id=None, exception=None, args=None, kwargs=None, **_kw):
+@task_failure.connect  # type: ignore[untyped-decorator]
+def on_task_failure(
+    sender: Any = None,
+    task_id: Any = None,
+    exception: Any = None,
+    args: Any = None,
+    kwargs: Any = None,
+    **_kw: Any,
+) -> None:
     """Route tasks to dead_letter queue when MaxRetriesExceededError is raised."""
     if isinstance(exception, MaxRetriesExceededError):
         store_dead_letter.apply_async(

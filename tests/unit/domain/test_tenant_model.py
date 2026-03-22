@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from domain.models.tenant import Tenant, TenantSettings, TenantStatus, VALID_STATE_TRANSITIONS
+from domain.models.tenant import VALID_STATE_TRANSITIONS, Tenant, TenantSettings, TenantStatus
 
 
 class TestTenantStatus:

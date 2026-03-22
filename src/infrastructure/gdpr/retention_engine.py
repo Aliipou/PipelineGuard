@@ -8,6 +8,7 @@ hard-delete (irreversible removal after the grace period expires).
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -123,8 +124,14 @@ class RetentionEngine:
         hard_count = await engine.hard_delete_records(expired)
     """
 
-    def __init__(self, db: RetentionDatabase) -> None:
+    def __init__(
+        self,
+        db: RetentionDatabase,
+        *,
+        now: Callable[[], datetime] | None = None,
+    ) -> None:
         self._db = db
+        self._now: Callable[[], datetime] = now or (lambda: datetime.now(UTC))
 
     async def scan_expired_records(
         self,
@@ -136,7 +143,7 @@ class RetentionEngine:
         """
 
         policy = policy or DEFAULT_POLICY
-        now = datetime.now(UTC)
+        now = self._now()
         all_expired: list[ExpiredRecord] = []
 
         for category in DataCategory:
@@ -174,7 +181,7 @@ class RetentionEngine:
         """
 
         policy = policy or DEFAULT_POLICY
-        now = datetime.now(UTC)
+        now = self._now()
         grace = timedelta(days=policy.grace_period_days)
 
         eligible = [

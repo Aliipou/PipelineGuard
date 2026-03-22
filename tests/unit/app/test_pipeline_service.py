@@ -15,9 +15,7 @@ from application.services.pipeline_service import (
 from domain.models.pipeline import (
     AlertSeverity,
     AlertType,
-    JobExecution,
     JobStatus,
-    Pipeline,
     PipelineStatus,
 )
 from domain.services.drift_analyzer import DriftAnalyzer
@@ -202,7 +200,7 @@ class TestConsecutiveFailures:
             destination="d",
             failure_threshold=3,
         )
-        for i in range(3):
+        for _i in range(3):
             svc.record_execution(
                 pipeline_id=pipeline.id,
                 tenant_id=TENANT_ID,
@@ -223,7 +221,7 @@ class TestConsecutiveFailures:
             destination="d",
             failure_threshold=3,
         )
-        for i in range(2):
+        for _i in range(2):
             svc.record_execution(
                 pipeline_id=pipeline.id,
                 tenant_id=TENANT_ID,

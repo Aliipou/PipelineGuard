@@ -3,7 +3,9 @@
 Delivers alert payloads to any HTTP endpoint as JSON, with HMAC-SHA256
 signature for payload verification on the receiving end.
 """
+
 from __future__ import annotations
+
 import hashlib
 import hmac
 import json
@@ -46,15 +48,17 @@ class WebhookNotifier:
         self._timeout = timeout
 
     def send_alert(self, alert: WebhookPayload) -> bool:
-        body = json.dumps({
-            "severity": alert.severity,
-            "alert_type": alert.alert_type,
-            "title": alert.title,
-            "description": alert.description,
-            "pipeline_name": alert.pipeline_name,
-            "tenant_id": alert.tenant_id,
-            "alert_id": alert.alert_id,
-        }).encode()
+        body = json.dumps(
+            {
+                "severity": alert.severity,
+                "alert_type": alert.alert_type,
+                "title": alert.title,
+                "description": alert.description,
+                "pipeline_name": alert.pipeline_name,
+                "tenant_id": alert.tenant_id,
+                "alert_id": alert.alert_id,
+            }
+        ).encode()
 
         headers = {"Content-Type": "application/json"}
         if self._secret:
@@ -64,7 +68,7 @@ class WebhookNotifier:
         try:
             req = urllib.request.Request(self._url, data=body, headers=headers, method="POST")
             with urllib.request.urlopen(req, timeout=self._timeout) as resp:
-                return resp.status < 400
+                return bool(resp.status < 400)
         except Exception:
             logger.exception("Webhook delivery failed", extra={"alert_id": alert.alert_id})
             return False

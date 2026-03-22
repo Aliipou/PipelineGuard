@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
 from uuid import uuid4
+
+import pytest
 
 from domain.models.tenant import Tenant, TenantStatus
 from infrastructure.adapters import InMemoryTenantRepository

@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from domain.services.drift_analyzer import DriftAnalyzer
 
 from application.schemas.pagination import PaginatedResponse, PaginationParams
 from domain.models.pipeline import (
@@ -24,7 +27,6 @@ from domain.models.pipeline import (
     PipelineStatus,
     WeeklySummary,
 )
-from domain.services.drift_analyzer import DriftAnalyzer
 from domain.services.summary_generator import SummaryGenerator, SummaryInput
 
 logger = logging.getLogger(__name__)
@@ -231,10 +233,9 @@ class PipelineService:
         is_silent_failure = False
 
         # Silent failure detection
-        if job_status == JobStatus.SUCCEEDED:
-            if records_processed == 0 or error_message:
-                is_silent_failure = True
-                job_status = JobStatus.SILENT_FAILURE
+        if job_status == JobStatus.SUCCEEDED and (records_processed == 0 or error_message):
+            is_silent_failure = True
+            job_status = JobStatus.SILENT_FAILURE
 
         execution = JobExecution(
             id=uuid4(),
@@ -392,10 +393,7 @@ class PipelineService:
         if len(recent) < pipeline.failure_threshold:
             return
 
-        all_failed = all(
-            ex.status in (JobStatus.FAILED, JobStatus.SILENT_FAILURE)
-            for ex in recent
-        )
+        all_failed = all(ex.status in (JobStatus.FAILED, JobStatus.SILENT_FAILURE) for ex in recent)
 
         if all_failed:
             self._create_alert(
@@ -496,9 +494,7 @@ class PipelineService:
             for ex in recent_executions
             if ex.status in (JobStatus.FAILED, JobStatus.SILENT_FAILURE)
         )
-        silent_failures = sum(
-            1 for ex in recent_executions if ex.is_silent_failure
-        )
+        silent_failures = sum(1 for ex in recent_executions if ex.is_silent_failure)
 
         # Check pipelines for drift
         pipelines, _ = self._pipeline_repo.list_by_tenant(
@@ -514,18 +510,12 @@ class PipelineService:
                 limit=100,
             )
             if len(historical) >= 2:
-                result = self._drift_analyzer.analyze(
-                    historical[-1], historical[:-1]
-                )
+                result = self._drift_analyzer.analyze(historical[-1], historical[:-1])
                 if result.is_drifting:
                     drift_percentages.append(result.drift_percentage)
 
         pipelines_with_drift = len(drift_percentages)
-        avg_drift = (
-            sum(drift_percentages) / len(drift_percentages)
-            if drift_percentages
-            else 0.0
-        )
+        avg_drift = sum(drift_percentages) / len(drift_percentages) if drift_percentages else 0.0
 
         # Build top risks
         top_risks: list[dict[str, Any]] = []
@@ -533,16 +523,18 @@ class PipelineService:
             if ex.is_silent_failure:
                 pipeline = self._pipeline_repo.get_by_id(ex.pipeline_id)
                 name = pipeline.name if pipeline else "Unknown"
-                top_risks.append({
-                    "type": "silent_failure",
-                    "pipeline": name,
-                    "description": (
-                        f"'{name}' silent failure on "
-                        f"{ex.started_at.strftime('%b %d')} at "
-                        f"{ex.started_at.strftime('%H:%M')} UTC "
-                        f"— {ex.records_processed} records."
-                    ),
-                })
+                top_risks.append(
+                    {
+                        "type": "silent_failure",
+                        "pipeline": name,
+                        "description": (
+                            f"'{name}' silent failure on "
+                            f"{ex.started_at.strftime('%b %d')} at "
+                            f"{ex.started_at.strftime('%H:%M')} UTC "
+                            f"— {ex.records_processed} records."
+                        ),
+                    }
+                )
 
         for pipeline in pipelines:
             historical = self._latency_repo.get_recent_durations(
@@ -550,18 +542,18 @@ class PipelineService:
                 limit=100,
             )
             if len(historical) >= 2:
-                result = self._drift_analyzer.analyze(
-                    historical[-1], historical[:-1]
-                )
+                result = self._drift_analyzer.analyze(historical[-1], historical[:-1])
                 if result.is_drifting:
-                    top_risks.append({
-                        "type": "latency_drift",
-                        "pipeline": pipeline.name,
-                        "description": (
-                            f"'{pipeline.name}' is "
-                            f"+{result.drift_percentage:.1f}% slower than baseline."
-                        ),
-                    })
+                    top_risks.append(
+                        {
+                            "type": "latency_drift",
+                            "pipeline": pipeline.name,
+                            "description": (
+                                f"'{pipeline.name}' is "
+                                f"+{result.drift_percentage:.1f}% slower than baseline."
+                            ),
+                        }
+                    )
 
         # Generate plain-English summary
         summary_input = SummaryInput(
@@ -601,7 +593,7 @@ class PipelineService:
 from domain.exceptions import DomainError  # noqa: E402
 
 
-class PipelineNotFoundError(DomainError):
+class PipelineNotFoundError(DomainError):  # type: ignore[misc]
     """Raised when a pipeline cannot be found."""
 
     def __init__(self, pipeline_id: str) -> None:
@@ -613,7 +605,7 @@ class PipelineNotFoundError(DomainError):
         )
 
 
-class AlertNotFoundError(DomainError):
+class AlertNotFoundError(DomainError):  # type: ignore[misc]
     """Raised when a pipeline alert cannot be found."""
 
     def __init__(self, alert_id: str) -> None:

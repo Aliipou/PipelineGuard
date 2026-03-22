@@ -33,7 +33,6 @@ def client(app):
 
 @pytest.mark.contract
 class TestOpenAPIContract:
-
     def test_health_endpoint(self, client):
         resp = client.get("/health")
         assert resp.status_code == 200

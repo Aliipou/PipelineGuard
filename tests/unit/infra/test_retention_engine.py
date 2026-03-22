@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
 
 from infrastructure.gdpr.retention_engine import (
-    DEFAULT_POLICY,
     DataCategory,
     ExpiredRecord,
     RetentionEngine,
@@ -19,7 +18,7 @@ from infrastructure.gdpr.retention_engine import (
 # Helpers
 # ------------------------------------------------------------------
 
-NOW = datetime(2026, 2, 17, 12, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 2, 17, 12, 0, 0, tzinfo=UTC)
 
 
 def _make_expired_record(
@@ -81,7 +80,7 @@ class TestScanExpiredRecords:
     async def test_queries_all_categories(self) -> None:
         mock_find = AsyncMock(return_value=[])
         db = _make_db(find_expired_records=mock_find)
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         await engine.scan_expired_records("t-1")
 
@@ -104,7 +103,7 @@ class TestSoftDeleteRecords:
             soft_deleted_at=NOW - timedelta(days=5),
         )
         db = _make_db()
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         count = await engine.soft_delete_records([already_deleted])
         assert count == 0
@@ -114,7 +113,7 @@ class TestSoftDeleteRecords:
         record = _make_expired_record(soft_deleted=False)
         mock_soft = AsyncMock(return_value=1)
         db = _make_db(soft_delete=mock_soft)
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         count = await engine.soft_delete_records([record])
         assert count == 1
@@ -136,7 +135,7 @@ class TestHardDeleteRecords:
         )
         mock_hard = AsyncMock(return_value=1)
         db = _make_db(hard_delete=mock_hard)
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         count = await engine.hard_delete_records([eligible])
         assert count == 1
@@ -149,7 +148,7 @@ class TestHardDeleteRecords:
             soft_deleted_at=NOW - timedelta(days=5),
         )
         db = _make_db()
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         count = await engine.hard_delete_records([recent])
         assert count == 0
@@ -159,7 +158,7 @@ class TestHardDeleteRecords:
         """Records that were never soft-deleted are not hard-deleted."""
         record = _make_expired_record(soft_deleted=False)
         db = _make_db()
-        engine = RetentionEngine(db=db)
+        engine = RetentionEngine(db=db, now=lambda: NOW)
 
         count = await engine.hard_delete_records([record])
         assert count == 0
