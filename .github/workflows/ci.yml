@@ -30,7 +30,7 @@ jobs:
         run: ruff format --check src/ tests/
 
       - name: Mypy type check
-        run: MYPYPATH=src mypy src/ --ignore-missing-imports
+        run: mypy src/ --ignore-missing-imports --explicit-package-bases
 
   unit-tests:
     name: Unit Tests
