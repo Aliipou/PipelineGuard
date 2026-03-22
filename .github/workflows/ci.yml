@@ -46,6 +46,7 @@ jobs:
         run: |
           pip install pytest pytest-asyncio pytest-cov pytest-xdist
           pip install pydantic pydantic-settings fastapi sqlalchemy alembic httpx
+          pip install "python-jose[cryptography]" argon2-cffi structlog
 
       - name: Run unit tests
         run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
