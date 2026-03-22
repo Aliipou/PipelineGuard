@@ -30,7 +30,7 @@ jobs:
         run: ruff format --check src/ tests/
 
       - name: Mypy type check
-        run: mypy src/ --ignore-missing-imports
+        run: MYPYPATH=src mypy src/ --ignore-missing-imports
 
   unit-tests:
     name: Unit Tests
@@ -49,6 +49,8 @@ jobs:
 
       - name: Run unit tests
         run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing
+        env:
+          PYTHONPATH: src
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
@@ -99,6 +101,7 @@ jobs:
       - name: Run integration tests
         run: pytest tests/integration/ -v
         env:
+          PYTHONPATH: src
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
           POSTGRES_USER: test
