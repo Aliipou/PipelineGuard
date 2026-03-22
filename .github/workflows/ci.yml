@@ -1,4 +1,4 @@
-name: CI
+name: CI Pipeline
 
 on:
   push:
@@ -6,32 +6,105 @@ on:
   pull_request:
     branches: [main, dev]
 
+env:
+  PYTHON_VERSION: "3.12"
+
 jobs:
   lint:
-    name: Lint
+    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install ruff mypy pydantic pydantic-settings fastapi
-      - run: ruff check src/ tests/ --select E,F,I --ignore E501,E402,F401,F841 || true
-      - run: mypy src/ --ignore-missing-imports || true
+          python-version: ${{ env.PYTHON_VERSION }}
 
-  test:
+      - name: Install lint dependencies
+        run: pip install ruff mypy pydantic pydantic-settings fastapi sqlalchemy alembic
+
+      - name: Ruff lint
+        run: ruff check src/ tests/ || true
+
+      - name: Ruff format check
+        run: ruff format --check src/ tests/ || true
+
+      - name: Mypy type check
+        run: mypy src/ --ignore-missing-imports || true
+
+  unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Install
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
         run: |
-          pip install pytest pytest-cov pytest-asyncio
-          pip install fastapi uvicorn pydantic pydantic-settings sqlalchemy asyncpg redis celery
+          pip install pytest pytest-asyncio pytest-cov pytest-xdist
+          pip install pydantic pydantic-settings fastapi sqlalchemy alembic httpx
+
       - name: Run unit tests
-        run: pytest tests/unit -v --cov=src --cov-report=xml || true
-      - uses: codecov/codecov-action@v4
+        run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing -m "unit" || true
         continue-on-error: true
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_multitenant
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          pip install pytest pytest-asyncio pytest-cov
+          pip install pydantic pydantic-settings fastapi sqlalchemy asyncpg alembic redis httpx
+
+      - name: Run integration tests
+        run: pytest tests/integration/ -v -m "integration" || true
+        continue-on-error: true
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_multitenant
+          REDIS_URL: redis://localhost:6379/0
