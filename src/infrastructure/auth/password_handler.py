@@ -42,7 +42,7 @@ class PasswordHandler:
         The returned string includes algorithm parameters and a random salt,
         making it safe to store directly.
         """
-        return self._hasher.hash(plain_password)
+        return str(self._hasher.hash(plain_password))
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
@@ -52,6 +52,6 @@ class PasswordHandler:
         malformed.
         """
         try:
-            return self._hasher.verify(hashed_password, plain_password)
+            return bool(self._hasher.verify(hashed_password, plain_password))
         except (VerifyMismatchError, VerificationError, InvalidHashError):
             return False

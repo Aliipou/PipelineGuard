@@ -146,11 +146,11 @@ class AuthService:
     # -- helpers ----------------------------------------------------------
 
     def _hash_password(self, password: str) -> str:
-        return self._hasher.hash(password)
+        return str(self._hasher.hash(password))
 
     def _verify_password(self, password: str, hashed: str) -> bool:
         try:
-            return self._hasher.verify(hashed, password)
+            return bool(self._hasher.verify(hashed, password))
         except VerifyMismatchError:
             return False
 
