@@ -8,23 +8,34 @@ PipelineGuard catches that in 30 seconds.
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
 
+> **Status: Early-stage / Demo.**
+> The core detection logic (silent failures, latency drift, consecutive failure tracking) is implemented and tested.
+> However, the default setup runs entirely with **in-memory repositories** -- data is lost on restart.
+> SQL-backed repository implementations exist (see `src/infrastructure/database/pipeline_repositories.py`) but are not wired into the DI container yet.
+> Slack and webhook notification classes exist but are **not connected** to the alert pipeline -- alerts are persisted but not delivered externally.
+
 ## The Problem
 
-Data pipelines lie. A pipeline that reports `status: SUCCEEDED` with `records_processed: 0` is a **silent failure** — the most expensive kind. No error, no alert, no pager. Just wrong data downstream for however long it takes someone to notice.
+Data pipelines lie. A pipeline that reports `status: SUCCEEDED` with `records_processed: 0` is a **silent failure** -- the most expensive kind. No error, no alert, no pager. Just wrong data downstream for however long it takes someone to notice.
 
 Latency drift is quieter still. Your nightly ETL job used to finish in 40 minutes. Now it takes 70. Each individual run looks fine. Trend-blind monitoring misses it entirely.
 
 ## What PipelineGuard Does
 
-**Silent failure detection** — Any execution that reports success but processed zero records, or succeeded alongside an error message, is immediately flagged as `SILENT_FAILURE` and generates a CRITICAL alert.
+**Silent failure detection** -- Any execution that reports success but processed zero records, or succeeded alongside an error message, is immediately flagged as `SILENT_FAILURE` and generates a CRITICAL alert.
 
-**Latency drift detection** — Every execution duration is compared against a rolling percentile baseline (p50 + p95) and scored with a z-score. When a pipeline consistently runs 25% above its p50 baseline, a WARNING alert fires before the problem becomes a crisis.
+**Latency drift detection** -- Every execution duration is compared against a rolling percentile baseline (p50 + p95) and scored with a z-score. When a pipeline consistently runs 25% above its p50 baseline, a WARNING alert fires before the problem becomes a crisis.
 
-**Consecutive failure tracking** — Configurable failure thresholds per pipeline. Three consecutive failures (or silent failures) generates a CRITICAL alert regardless of individual severity.
+**Consecutive failure tracking** -- Configurable failure thresholds per pipeline. Three consecutive failures (or silent failures) generates a CRITICAL alert regardless of individual severity.
 
-**Slack notifications** — Alerts are delivered to your channel with severity color-coding, full context, and a pipeline name you can act on.
+**Weekly health summaries** -- Every Monday, a plain-English summary: how many jobs ran, how many silently failed, which pipelines are drifting, and the top 5 risks. Readable by engineers and CTOs alike.
 
-**Weekly health summaries** — Every Monday, a plain-English summary: how many jobs ran, how many silently failed, which pipelines are drifting, and the top 5 risks. Readable by engineers and CTOs alike.
+### Not Yet Wired Up
+
+- **Slack notifications** -- `SlackNotifier` class exists (`src/infrastructure/notifications/slack.py`) with Block Kit formatting, but is not called from the alert pipeline. Alerts are stored in the database only.
+- **Webhook notifications** -- `WebhookNotifier` class exists with HMAC-SHA256 signing, but is not connected.
+- **SQL persistence** -- SQL repository implementations exist for pipelines, executions, latency records, and alerts. The DI container currently uses in-memory replacements. See TODO comments in `src/infrastructure/container.py`.
+- **Alert deduplication** -- `AlertDeduplicator` exists but is not integrated into `PipelineService._create_alert()`.
 
 ## Quick Start
 
@@ -84,7 +95,7 @@ curl -s -X POST http://localhost:8000/api/v1/tenants/{tenant_id}/pipelines/{pipe
     "duration_seconds": 1860,
     "records_processed": 0
   }'
-# -> silent failure detected, CRITICAL alert to Slack, zero configuration needed
+# -> silent failure detected, CRITICAL alert stored
 ```
 
 ## Architecture
@@ -95,30 +106,25 @@ curl -s -X POST http://localhost:8000/api/v1/tenants/{tenant_id}/pipelines/{pipe
                               |
                     POST /executions
                               |
-                     ┌────────▼─────────┐
-                     │   PipelineGuard  │
-                     │      API         │
-                     └────────┬─────────┘
-                              │
-            ┌─────────────────┼──────────────────┐
-            │                 │                  │
-   ┌────────▼───────┐ ┌───────▼────────┐ ┌──────▼──────────┐
-   │  Silent Failure│ │  Drift Analyzer│ │  Consecutive     │
-   │  Detector      │ │  (z-score +    │ │  Failure Check   │
-   │                │ │   percentile)  │ │                  │
-   └────────┬───────┘ └───────┬────────┘ └──────┬──────────┘
-            │                 │                  │
-            └─────────────────┼──────────────────┘
-                              │
-                    ┌─────────▼──────────┐
-                    │   Alert Engine     │
-                    │   (Postgres)       │
-                    └─────────┬──────────┘
-                              │
-                    ┌─────────▼──────────┐
-                    │  Slack Notifier    │
-                    │  (Block Kit)       │
-                    └────────────────────┘
+                     +--------v---------+
+                     |   PipelineGuard  |
+                     |      API         |
+                     +--------+---------+
+                              |
+            +-----------------+------------------+
+            |                 |                  |
+   +--------v-------+ +------v--------+ +-------v---------+
+   |  Silent Failure| |  Drift        | |  Consecutive    |
+   |  Detector      | |  Analyzer     | |  Failure Check  |
+   +--------+-------+ +------+--------+ +-------+---------+
+            |                 |                  |
+            +-----------------+------------------+
+                              |
+                    +---------v----------+
+                    |   Alert Storage    |
+                    |   (In-Memory /     |
+                    |    Postgres)       |
+                    +--------------------+
 ```
 
 ## Detection Logic
@@ -146,27 +152,11 @@ is_anomaly     = |z_score| > 2.5               # 2.5 standard deviations
 
 The combination of percentile drift (trend detection) and z-score (spike detection) catches both gradual slowdowns and sudden outliers with a very low false positive rate.
 
-## Slack Alert Example
-
-When a silent failure is detected, this fires immediately:
-
-```
-🔴 Silent Failure: nightly-user-sync
-
-Pipeline 'nightly-user-sync' (postgres://crm -> bigquery://warehouse)
-reported success but processed 0 records.
-
-Type:      Silent Failure     Severity: CRITICAL
-Pipeline:  nightly-user-sync  Alert ID: `a1b2c3d4...`
-
-────────────────────────────────────────
-PipelineGuard | Tenant `acme-corp...`
-```
-
 ## API Reference
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| GET | `/health` | Health check |
 | POST | `/api/v1/tenants/{tid}/pipelines` | Register pipeline |
 | GET | `/api/v1/tenants/{tid}/pipelines` | List pipelines |
 | POST | `/api/v1/tenants/{tid}/pipelines/{pid}/executions` | Report execution |
@@ -186,8 +176,8 @@ Full OpenAPI spec at `/docs` (Swagger UI) or `/redoc`.
 APP_POSTGRES_HOST=postgres
 APP_POSTGRES_PASSWORD=your_password
 APP_REDIS_URL=redis://redis:6379/0
-APP_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...
-APP_JWT_PRIVATE_KEY=...   # RS256 — generate with scripts/generate_keys.py
+APP_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...   # not yet wired
+APP_JWT_PRIVATE_KEY=...   # RS256 -- generate with scripts/generate_keys.py
 ```
 
 ## Running Tests

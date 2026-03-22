@@ -44,12 +44,25 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceContainer:
-    """Central DI container that owns all service instances."""
+    """Central DI container that owns all service instances.
+
+    NOTE: All repositories below use in-memory implementations.
+    This is DEMO MODE only -- data is lost on restart.
+
+    For production, swap to the SQL-backed implementations in
+    ``infrastructure.database.pipeline_repositories`` which require
+    a SQLAlchemy ``Session`` bound to PostgreSQL. See the TODO comments
+    on each adapter group below.
+    """
 
     def __init__(self, settings: AppSettings | None = None) -> None:
         self._settings = settings or get_settings()
 
-        # Infrastructure adapters
+        # Infrastructure adapters  (DEMO MODE -- in-memory, not persistent)
+        # TODO: For production, create a SQLAlchemy session factory from
+        #   settings and inject it into SQL repository classes, e.g.:
+        #   from sqlalchemy.orm import Session
+        #   session = SessionLocal()  # from your engine/sessionmaker setup
         self.tenant_repo = InMemoryTenantRepository()
         self.user_repo = InMemoryUserRepository()
         self.audit_repo = InMemoryAuditRepository()
@@ -65,7 +78,17 @@ class ServiceContainer:
         self.schema_manager = NoOpSchemaManager()
         self.event_publisher = LoggingEventPublisher()
 
-        # PipelineGuard adapters
+        # PipelineGuard adapters  (DEMO MODE -- in-memory, not persistent)
+        # TODO: For production, swap these to the SQL implementations:
+        #   from infrastructure.database.pipeline_repositories import (
+        #       SQLPipelineRepository, SQLJobExecutionRepository,
+        #       SQLLatencyRecordRepository, SQLPipelineAlertRepository,
+        #   )
+        #   self.pipeline_repo = SQLPipelineRepository(session)
+        #   self.execution_repo = SQLJobExecutionRepository(session)
+        #   self.latency_repo = SQLLatencyRecordRepository(session)
+        #   self.alert_repo = SQLPipelineAlertRepository(session)
+        #   self.summary_repo = <needs SQL implementation>
         self.pipeline_repo = InMemoryPipelineRepository()
         self.execution_repo = InMemoryJobExecutionRepository()
         self.latency_repo = InMemoryLatencyRecordRepository()

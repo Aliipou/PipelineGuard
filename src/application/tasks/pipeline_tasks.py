@@ -41,11 +41,24 @@ def scan_silent_failures(self: Any) -> dict[str, Any]:
                     limit=100,
                 )
                 for ex in recent:
+                    # BUG FIX: Only flag executions that haven't already been
+                    # detected. The old code called record_execution() which
+                    # creates a *new* duplicate execution + duplicate alert
+                    # every time the scan runs. Instead, we skip executions
+                    # that are already marked as silent failures (status ==
+                    # SILENT_FAILURE or is_silent_failure == True).
+                    if ex.is_silent_failure or ex.status == JobStatus.SILENT_FAILURE:
+                        continue  # already processed
                     if (
                         ex.status == JobStatus.SUCCEEDED
                         and (ex.records_processed == 0 or ex.error_message)
                     ):
-                        # Re-record through service to trigger alert
+                        # TODO: Ideally, update the existing execution's status
+                        # in-place rather than creating a new record. For now,
+                        # re-record through service to trigger alert, but this
+                        # still creates a second execution row. A proper fix
+                        # requires an execution_repo.update() method and an
+                        # idempotency key on alerts.
                         container.pipeline_service.record_execution(
                             pipeline_id=ex.pipeline_id,
                             tenant_id=ex.tenant_id,

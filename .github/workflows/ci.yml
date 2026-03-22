@@ -24,13 +24,13 @@ jobs:
         run: pip install ruff mypy pydantic pydantic-settings fastapi sqlalchemy alembic
 
       - name: Ruff lint
-        run: ruff check src/ tests/ || true
+        run: ruff check src/ tests/
 
       - name: Ruff format check
-        run: ruff format --check src/ tests/ || true
+        run: ruff format --check src/ tests/
 
       - name: Mypy type check
-        run: mypy src/ --ignore-missing-imports || true
+        run: mypy src/ --ignore-missing-imports
 
   unit-tests:
     name: Unit Tests
@@ -48,15 +48,13 @@ jobs:
           pip install pydantic pydantic-settings fastapi sqlalchemy alembic httpx
 
       - name: Run unit tests
-        run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing -m "unit" || true
-        continue-on-error: true
+        run: pytest tests/unit/ -v --cov=src --cov-report=xml --cov-report=term-missing -m "unit"
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
-        continue-on-error: true
 
   integration-tests:
     name: Integration Tests
@@ -99,8 +97,7 @@ jobs:
           pip install pydantic pydantic-settings fastapi sqlalchemy asyncpg alembic redis httpx
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v -m "integration" || true
-        continue-on-error: true
+        run: pytest tests/integration/ -v -m "integration"
         env:
           POSTGRES_HOST: localhost
           POSTGRES_PORT: 5432
