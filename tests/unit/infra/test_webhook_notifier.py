@@ -7,8 +7,6 @@ import hmac
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from infrastructure.notifications.webhook import WebhookNotifier, WebhookPayload
 
 

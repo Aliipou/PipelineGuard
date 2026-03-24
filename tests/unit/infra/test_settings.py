@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from infrastructure.settings import AppSettings, get_settings
 
 
