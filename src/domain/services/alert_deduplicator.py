@@ -30,7 +30,7 @@ class AlertDeduplicator:
         """Returns True if a new alert should be sent, False if suppressed."""
         key = f"{pipeline_id}:{alert_type}"
         now = time.monotonic()
-        last = self._last_alert.get(key, 0.0)
+        last = self._last_alert.get(key, -float("inf"))
         if now - last >= self.cooldown_seconds:
             self._last_alert[key] = now
             return True
