@@ -1,206 +1,132 @@
 # PipelineGuard
 
-Your pipeline said **SUCCESS**. It processed zero records. You found out three days later when the weekly report was wrong.
+Data pipelines fail silently. A job reports `status: SUCCEEDED` with `records_processed: 0` — no alert, no pager, just wrong data downstream until someone notices the numbers are off three days later. Standard monitoring tools catch crashes; they do not catch jobs that succeed at doing nothing.
 
-PipelineGuard catches that in 30 seconds.
+PipelineGuard is an async SaaS backend that monitors pipelines for silent failures (succeeded + zero records), latency drift (execution time growing against a rolling p50/p95 baseline), and consecutive failure patterns — with full multi-tenancy, RS256 JWT auth, and Prometheus metrics.
 
-[![CI](https://github.com/Aliipou/PipelineGuard/actions/workflows/ci.yml/badge.svg)](https://github.com/Aliipou/PipelineGuard/actions/workflows/ci.yml)
-[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green?style=flat)](LICENSE)
+> **Current state:** The core detection logic, RBAC, billing, GDPR, and Celery task infrastructure are fully implemented and tested (346 tests). The dependency-injection container wires **in-memory repositories** by default — `src/infrastructure/database/pipeline_repositories.py` contains the SQLAlchemy implementations but they are not yet wired into the container. Alerts are persisted but Slack/webhook delivery is not connected to the alert pipeline.
 
-> **Status: Early-stage / Demo.**
-> The core detection logic (silent failures, latency drift, consecutive failure tracking) is implemented and tested.
-> However, the default setup runs entirely with **in-memory repositories** -- data is lost on restart.
-> SQL-backed repository implementations exist (see `src/infrastructure/database/pipeline_repositories.py`) but are not wired into the DI container yet.
-> Slack and webhook notification classes exist but are **not connected** to the alert pipeline -- alerts are persisted but not delivered externally.
-
-## The Problem
-
-Data pipelines lie. A pipeline that reports `status: SUCCEEDED` with `records_processed: 0` is a **silent failure** -- the most expensive kind. No error, no alert, no pager. Just wrong data downstream for however long it takes someone to notice.
-
-Latency drift is quieter still. Your nightly ETL job used to finish in 40 minutes. Now it takes 70. Each individual run looks fine. Trend-blind monitoring misses it entirely.
-
-## What PipelineGuard Does
-
-**Silent failure detection** -- Any execution that reports success but processed zero records, or succeeded alongside an error message, is immediately flagged as `SILENT_FAILURE` and generates a CRITICAL alert.
-
-**Latency drift detection** -- Every execution duration is compared against a rolling percentile baseline (p50 + p95) and scored with a z-score. When a pipeline consistently runs 25% above its p50 baseline, a WARNING alert fires before the problem becomes a crisis.
-
-**Consecutive failure tracking** -- Configurable failure thresholds per pipeline. Three consecutive failures (or silent failures) generates a CRITICAL alert regardless of individual severity.
-
-**Weekly health summaries** -- Every Monday, a plain-English summary: how many jobs ran, how many silently failed, which pipelines are drifting, and the top 5 risks. Readable by engineers and CTOs alike.
-
-### Not Yet Wired Up
-
-- **Slack notifications** -- `SlackNotifier` class exists (`src/infrastructure/notifications/slack.py`) with Block Kit formatting, but is not called from the alert pipeline. Alerts are stored in the database only.
-- **Webhook notifications** -- `WebhookNotifier` class exists with HMAC-SHA256 signing, but is not connected.
-- **SQL persistence** -- SQL repository implementations exist for pipelines, executions, latency records, and alerts. The DI container currently uses in-memory replacements. See TODO comments in `src/infrastructure/container.py`.
-- **Alert deduplication** -- `AlertDeduplicator` exists but is not integrated into `PipelineService._create_alert()`.
-
-## Quick Start
-
-```bash
-git clone https://github.com/Aliipou/PipelineGuard
-cd PipelineGuard
-cp deploy/docker/.env.example deploy/docker/.env
-docker compose -f deploy/docker/docker-compose.yml up -d
-```
-
-The API is at `http://localhost:8000`. Interactive docs at `http://localhost:8000/docs`.
-
-### Register a Pipeline
-
-```bash
-curl -s -X POST http://localhost:8000/api/v1/tenants/{tenant_id}/pipelines \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "nightly-user-sync",
-    "source": "postgres://crm",
-    "destination": "bigquery://warehouse",
-    "schedule_cron": "0 2 * * *",
-    "expected_duration_seconds": 1800,
-    "failure_threshold": 3
-  }'
-```
-
-### Report an Execution (Python SDK)
-
-```python
-from pipelineguard import guard
-
-@guard(
-    pipeline_id="<pipeline-uuid>",
-    tenant_id="<tenant-uuid>",
-    api_url="http://localhost:8000",
-    api_key="pg_live_...",
-)
-def nightly_user_sync() -> int:
-    users = fetch_users_from_crm()
-    upsert_to_warehouse(users)
-    return len(users)  # auto-reported as records_processed
-
-# If this returns 0 -> CRITICAL alert fires immediately
-nightly_user_sync()
-```
-
-### Report from Any Language
-
-```bash
-curl -s -X POST http://localhost:8000/api/v1/tenants/{tenant_id}/pipelines/{pipeline_id}/executions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "status": "SUCCEEDED",
-    "started_at": "2024-01-15T02:00:00Z",
-    "finished_at": "2024-01-15T02:31:00Z",
-    "duration_seconds": 1860,
-    "records_processed": 0
-  }'
-# -> silent failure detected, CRITICAL alert stored
-```
+---
 
 ## Architecture
 
 ```
-                      Your pipelines
-                      (Airflow / cron / Celery / K8s jobs)
-                              |
-                    POST /executions
-                              |
-                     +--------v---------+
-                     |   PipelineGuard  |
-                     |      API         |
-                     +--------+---------+
-                              |
-            +-----------------+------------------+
-            |                 |                  |
-   +--------v-------+ +------v--------+ +-------v---------+
-   |  Silent Failure| |  Drift        | |  Consecutive    |
-   |  Detector      | |  Analyzer     | |  Failure Check  |
-   +--------+-------+ +------+--------+ +-------+---------+
-            |                 |                  |
-            +-----------------+------------------+
-                              |
-                    +---------v----------+
-                    |   Alert Storage    |
-                    |   (In-Memory /     |
-                    |    Postgres)       |
-                    +--------------------+
+HTTP Client
+    |
+    v
+FastAPI Presentation Layer  (src/presentation/)
+    |  RS256 JWT + RBAC middleware
+    |  tenant_id injected into every request
+    v
+Application Services  (src/application/services/)
+    |  PipelineService, AuthService, BillingService, GDPRService
+    |  coordinates domain logic; depends only on Protocol port interfaces
+    v
+Domain Layer  (src/domain/)
+    |  Pipeline, JobExecution, LatencyRecord, PipelineAlert  (pure dataclasses)
+    |  DriftAnalyzer  -- rolling p50/p95 + z-score anomaly detection
+    |  AlertDeduplicator  -- cooldown-window suppression
+    |  SummaryGenerator  -- plain-English weekly summaries
+    v
+Infrastructure Layer  (src/infrastructure/)
+    |  JWTHandler (RS256 sign/verify)
+    |  RBAC (VIEWER < MEMBER < ADMIN < OWNER, permission-level checks)
+    |  SQLAlchemy ORM models + Alembic migrations (3 versioned files)
+    |  Redis token store + cache manager
+    |  Celery tasks (billing_tasks, gdpr_tasks, pipeline_tasks)
+    v
+Storage: PostgreSQL (primary) + Redis (cache/sessions)
+Observability: Prometheus metrics via prometheus-client
 ```
 
-## Detection Logic
+**Silent failure detection flow:** every `JobExecution` reported as `SUCCEEDED` with `records_processed == 0`, or with a non-empty `error_message`, is immediately re-classified as `SILENT_FAILURE` and triggers a `CRITICAL` alert.
 
-### Silent Failure
+**Latency drift flow:** each execution duration is compared against the last 100 historical durations. If `current > p50 * 1.25`, the job is flagged as drifting. If `|z-score| > 2.5`, it is flagged as an anomaly. Both thresholds are configurable per pipeline.
 
-A job execution is classified `SILENT_FAILURE` when:
-- `status == SUCCEEDED` AND `records_processed == 0`
-- `status == SUCCEEDED` AND `error_message != ""`
+---
 
-This catches the most common real-world failure mode: upstream data source returns empty, pipeline exits cleanly, downstream reports are silently stale.
+## Key Design Decisions
 
-### Latency Drift (DriftAnalyzer)
+**Clean Architecture with Protocol-based ports, not direct ORM coupling.** Application services depend on `Protocol` interfaces (`PipelineRepository`, `JobExecutionRepository`), not on SQLAlchemy sessions. This lets unit tests inject fast in-memory fakes while the integration layer swaps in real DB adapters. Tradeoff: more indirection, more files, and two implementations to keep in sync.
 
-For each execution, PipelineGuard computes:
+**RS256 asymmetric JWT, not HS256 symmetric.** Services that only verify tokens (e.g. a read-only analytics service) need only the public key. They cannot forge tokens. With HS256, sharing the key means sharing the ability to mint tokens. Tradeoff: RSA key-pair management overhead at deploy time.
 
-```
-rolling_window = last 100 durations for this pipeline
-p50            = median(rolling_window)
-z_score        = (current - mean) / stdev
+**Tenant isolation via `tenant_id` claim in JWT, not per-tenant schema.** Every query is filtered by `tenant_id` extracted from the verified token. Per-tenant PostgreSQL schemas would give stronger isolation at the DDL level, but require a migration per new tenant and make cross-tenant reporting impossible. The shared-schema approach is simpler to operate at the cost of needing query discipline throughout the codebase.
 
-is_drifting    = current > p50 * 1.25          # 25% above baseline
-is_anomaly     = |z_score| > 2.5               # 2.5 standard deviations
-```
+**Alert deduplication in-process, not in the database.** The `AlertDeduplicator` uses an in-memory `dict[str, float]` keyed by `pipeline_id:alert_type` with a configurable cooldown window (default 300 s). No DB round-trip on every execution event. Tradeoff: state does not survive restarts, and two API instances would have independent cooldown windows.
 
-The combination of percentile drift (trend detection) and z-score (spike detection) catches both gradual slowdowns and sudden outliers with a very low false positive rate.
+**Celery for background tasks, not FastAPI `BackgroundTasks`.** Billing cycles, GDPR export jobs, and weekly summary generation are long-running and must survive web process restarts. FastAPI `BackgroundTasks` are tied to the request lifecycle. Tradeoff: requires a Redis broker and a separate Celery worker process in the deployment.
 
-## API Reference
+---
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/api/v1/tenants/{tid}/pipelines` | Register pipeline |
-| GET | `/api/v1/tenants/{tid}/pipelines` | List pipelines |
-| POST | `/api/v1/tenants/{tid}/pipelines/{pid}/executions` | Report execution |
-| GET | `/api/v1/tenants/{tid}/pipelines/{pid}/executions` | Execution history |
-| GET | `/api/v1/tenants/{tid}/pipelines/{pid}/latency` | Latency + drift data |
-| GET | `/api/v1/tenants/{tid}/alerts` | Active alerts |
-| POST | `/api/v1/tenants/{tid}/alerts/{aid}/acknowledge` | Acknowledge alert |
-| GET | `/api/v1/tenants/{tid}/summary` | Latest weekly summary |
-| POST | `/api/v1/tenants/{tid}/summary/generate` | Generate summary now |
+## Tech Stack
 
-Full OpenAPI spec at `/docs` (Swagger UI) or `/redoc`.
+| Component | Justification |
+|---|---|
+| **FastAPI** | Native async, automatic OpenAPI generation, dependency injection for per-request auth context |
+| **SQLAlchemy 2 (async)** | Declarative ORM with Alembic-managed migrations; async sessions via asyncpg |
+| **asyncpg** | PostgreSQL wire protocol driver; significantly faster than psycopg2 for async workloads |
+| **python-jose (RS256)** | JOSE-compliant JWT library with asymmetric key support; access tokens expire in 15 min, refresh tokens in 7 days |
+| **argon2-cffi** | Password hashing; Argon2id is the current OWASP recommendation over bcrypt for new systems |
+| **Celery + Redis** | Distributed task queue for jobs that must survive API restarts and be retriable |
+| **Prometheus-client** | Exposes metrics in the standard scrape format compatible with Grafana/Prometheus stacks |
+| **structlog** | Structured JSON log output with bound request context (tenant_id, request_id) |
+| **Alembic** | Schema migrations versioned alongside application code; three migration files covering the full schema |
+| **pytest-asyncio + pytest-xdist** | Async test runner with parallel execution; test suite is organized into unit, integration, contract, and load categories |
 
-## Configuration
+---
+
+## Running Locally
 
 ```bash
-# deploy/docker/.env
-APP_POSTGRES_HOST=postgres
-APP_POSTGRES_PASSWORD=your_password
-APP_REDIS_URL=redis://redis:6379/0
-APP_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T.../B.../...   # not yet wired
-APP_JWT_PRIVATE_KEY=...   # RS256 -- generate with scripts/generate_keys.py
-```
+git clone https://github.com/Aliipou/PipelineGuard.git
+cd PipelineGuard
 
-## Running Tests
+# Generate RSA key pair for JWT signing
+openssl genrsa -out private_key.pem 2048
+openssl rsa -in private_key.pem -pubout -out public_key.pem
 
-```bash
+# Install
 pip install -e ".[dev]"
-make test          # unit + integration
-make test-unit     # unit only (no database required)
-make lint          # ruff + mypy
+
+# Run unit tests (no external services required)
+PYTHONPATH=src pytest tests/unit/ -v
+
+# Start API (in-memory repositories; no database needed for smoke testing)
+PYTHONPATH=src uvicorn src.presentation.main:app --reload --port 8000
+
+# Alternatively, with Docker (single-container)
+docker compose up
 ```
 
-## Production Deployment
+Integration tests require running Postgres and Redis:
 
-See [deploy/k8s/](deploy/k8s/) for Kubernetes manifests with:
-- API deployment + HPA
-- Celery worker deployment
-- PostgreSQL StatefulSet
-- Redis deployment
-- Prometheus + Grafana + Loki observability stack
-- Network policies (deny-all default, allow-list per service)
+```bash
+docker run -d -e POSTGRES_PASSWORD=test -p 5432:5432 postgres:16-alpine
+docker run -d -p 6379:6379 redis:7-alpine
 
-See [deploy/terraform/](deploy/terraform/) for AWS infrastructure modules (ECS, RDS, ElastiCache, VPC).
+PYTHONPATH=src pytest tests/integration/ -v
+```
 
-## License
+---
 
-MIT
+## Deployment
+
+Minimum required infrastructure:
+
+- **PostgreSQL 16+** — primary data store; run `alembic upgrade head` before first start
+- **Redis 7+** — Celery task broker, refresh token store, response cache
+- **Celery worker** — separate process consuming from Redis: `celery -A src.application.tasks.celery_app worker --loglevel=info`
+- **RSA key pair** — private key for the API process; distribute only the public key to downstream services that verify tokens
+
+For multi-instance production: the in-memory `AlertDeduplicator` and in-memory repositories must be replaced with their Redis/SQLAlchemy equivalents. Running two API instances with the current defaults would result in divergent deduplication state and data loss on any restart.
+
+---
+
+## Known Limitations / TODO
+
+- **In-memory repositories are the default.** All data is lost on process restart. The SQLAlchemy-backed implementations in `src/infrastructure/database/pipeline_repositories.py` need to be wired into `src/infrastructure/container.py`.
+- **Alert delivery is not connected.** Slack notifier and webhook classes exist in the infrastructure layer but are not attached to the alert pipeline. Alerts are persisted in the repository but never sent externally.
+- **No horizontal-scale-safe alert deduplication.** The `AlertDeduplicator` is in-process; two API instances would double-fire alerts for the same pipeline.
+- **Single-container Docker Compose.** The provided `docker-compose.yml` starts only the API container; it expects `.env` to point at externally-run Postgres and Redis.
+- **Coverage threshold is 55%.** Reflects the gap between well-tested domain/application code and the not-yet-integrated infrastructure wiring.
