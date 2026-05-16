@@ -62,3 +62,6 @@ logs/
 
 # Data exports
 exports/
+
+CLAUDE.md
+ANTI_GARBAGE_CHECKLIST.md
