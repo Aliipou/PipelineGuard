@@ -1,0 +1,17 @@
+# <type>(<scope>): <short summary>
+#
+# Types: feat fix docs style refactor test ci chore perf build
+# Scope: optional, e.g. (auth) (api) (db) (docker) (ci)
+#
+# Body (optional): explain the WHY, not the WHAT
+#
+# Examples:
+#   feat(auth): add JWT refresh token rotation
+#   fix(db): use parameterized queries to prevent SQL injection
+#   chore(ci): upgrade actions/checkout from v3 to v4
+#
+# Rules:
+#   - Subject line <= 72 chars
+#   - Use imperative mood ("add" not "added")
+#   - No period at end of subject
+#   - Reference issues: Closes #123
