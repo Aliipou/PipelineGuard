@@ -1,0 +1,244 @@
+openapi: "3.1.0"
+info:
+  title: PipelineGuard API
+  version: "1.0.0"
+  description: Multi-tenant data pipeline observability and monitoring platform.
+  contact:
+    name: Ali Pourrahim
+    email: nikzadpars@gmail.com
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development
+tags:
+  - name: auth
+    description: Authentication and token management
+  - name: tenants
+    description: Tenant management
+  - name: pipelines
+    description: Pipeline CRUD and monitoring
+  - name: executions
+    description: Job execution tracking
+  - name: alerts
+    description: Alert management
+  - name: billing
+    description: Subscription and usage billing
+paths:
+  /auth/login:
+    post:
+      operationId: auth_login
+      summary: Authenticate and receive JWT tokens
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string, format: email}
+                password: {type: string}
+      responses:
+        "200":
+          description: Access and refresh tokens
+        "401":
+          description: Invalid credentials
+  /auth/refresh:
+    post:
+      operationId: auth_refresh
+      summary: Refresh access token
+      tags: [auth]
+      responses:
+        "200":
+          description: New access token
+  /tenants:
+    post:
+      operationId: create_tenant
+      summary: Register a new tenant
+      tags: [tenants]
+      responses:
+        "201":
+          description: Tenant created
+  /tenants/{tenant_id}/pipelines:
+    get:
+      operationId: list_pipelines
+      summary: List all pipelines for a tenant
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, paused, failed, unknown]
+        - name: page
+          in: query
+          schema: {type: integer, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, default: 20, maximum: 100}
+      responses:
+        "200":
+          description: Paginated pipeline list
+    post:
+      operationId: create_pipeline
+      summary: Register a new pipeline
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "201":
+          description: Pipeline created
+  /tenants/{tenant_id}/pipelines/{pipeline_id}:
+    get:
+      operationId: get_pipeline
+      summary: Get pipeline details
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: pipeline_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Pipeline details
+        "404":
+          description: Pipeline not found
+    patch:
+      operationId: update_pipeline
+      summary: Update pipeline configuration
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: pipeline_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Updated pipeline
+    delete:
+      operationId: delete_pipeline
+      summary: Delete a pipeline
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: pipeline_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "204":
+          description: Deleted
+  /tenants/{tenant_id}/pipelines/{pipeline_id}/executions:
+    get:
+      operationId: list_executions
+      summary: List job executions for a pipeline
+      tags: [executions]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: pipeline_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: List of job executions
+    post:
+      operationId: record_execution
+      summary: Record a new job execution
+      tags: [executions]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: pipeline_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "201":
+          description: Execution recorded
+  /tenants/{tenant_id}/alerts:
+    get:
+      operationId: list_alerts
+      summary: List active alerts for a tenant
+      tags: [alerts]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: acknowledged
+          in: query
+          schema: {type: boolean}
+      responses:
+        "200":
+          description: Alert list
+  /tenants/{tenant_id}/alerts/{alert_id}/acknowledge:
+    post:
+      operationId: acknowledge_alert
+      summary: Acknowledge an alert
+      tags: [alerts]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: alert_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Alert acknowledged
+  /tenants/{tenant_id}/summary:
+    get:
+      operationId: weekly_summary
+      summary: Weekly pipeline health summary
+      tags: [pipelines]
+      parameters:
+        - name: tenant_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Weekly summary with SLA metrics
+  /health:
+    get:
+      operationId: health_check
+      summary: Service health check
+      security: []
+      responses:
+        "200":
+          description: Healthy
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+security:
+  - BearerAuth: []
