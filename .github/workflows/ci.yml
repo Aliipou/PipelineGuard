@@ -118,7 +118,7 @@ jobs:
       - name: Build image
         run: docker build -t scan-target:test -f deploy/docker/Dockerfile .
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: scan-target:test
           format: table
