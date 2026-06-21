@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM python:3.12.10-slim-bookworm AS builder
+FROM python:3.14.6-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -11,7 +11,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir --prefix=/install .
 
 # Stage 2: Production
-FROM python:3.12.10-slim-bookworm AS production
+FROM python:3.14.6-slim-bookworm AS production
 
 LABEL maintainer="ali" \
       description="EU-Grade Multi-Tenant Cloud Platform" \
