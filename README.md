@@ -1,5 +1,7 @@
 # PipelineGuard
 
+**Live (graph):** [https://ali-pipelineguard.vercel.app](https://ali-pipelineguard.vercel.app)
+
 Data pipelines fail silently. A job reports `status: SUCCEEDED` with `records_processed: 0` — no alert, no pager, just wrong data downstream until someone notices the numbers are off three days later. Standard monitoring tools catch crashes; they do not catch jobs that succeed at doing nothing.
 
 PipelineGuard is an async SaaS backend that monitors pipelines for silent failures (succeeded + zero records), latency drift (execution time growing against a rolling p50/p95 baseline), and consecutive failure patterns — with full multi-tenancy, RS256 JWT auth, and Prometheus metrics.
